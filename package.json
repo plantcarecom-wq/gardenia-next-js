@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node init && next dev",
+    "build": "node init && next build",
+    "start": "node init && next start",
     "lint": "eslint",
     "seed:admin": "tsx --env-file=.env src/scripts/seed-admin.ts",
     "seed:categories": "tsx --env-file=.env src/scripts/seed-categories.ts",
