@@ -1,0 +1,18 @@
+{
+  "default_branch": "main",
+  "branches": [
+    "agent-from-edge-functions-5a69",
+    "main",
+    "origin"
+  ],
+  "parent": {
+    "agent-from-edge-functions-5a69": "main",
+    "main": null,
+    "origin": "main"
+  },
+  "order": [
+    "main",
+    "agent-from-edge-functions-5a69",
+    "origin"
+  ]
+}
