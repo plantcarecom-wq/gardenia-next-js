@@ -1,15 +1,15 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { env } from '@/config/env';
+import { authConfig } from '@/shared/lib/auth.config';
 import { userRepository } from '@/modules/users/infrastructure/UserRepository';
 import { verifyPassword } from '@/shared/lib/password';
 
+// Full NextAuth instance for Node.js runtime only (API routes, Route
+// Handlers, server components). This is the only place the Credentials
+// provider and mongoose-backed userRepository should be imported — keep it
+// out of `proxy.ts` / middleware, which must use `auth.edge.ts` instead.
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: env.AUTH_SECRET,
-  session: { strategy: 'jwt' },
-  pages: {
-    signIn: '/login',
-  },
+  ...authConfig,
   providers: [
     CredentialsProvider({
       name: 'Credentials',
