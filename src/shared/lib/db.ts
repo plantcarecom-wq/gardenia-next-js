@@ -1,5 +1,13 @@
+import dns from 'dns';
 import mongoose from 'mongoose';
 import { env } from '@/config/env';
+
+// Windows sometimes registers a loopback DNS server (via WSL/Docker virtual
+// adapters) that Node's resolver picks up instead of the OS default, which
+// breaks the SRV lookup used by mongodb+srv:// URIs with ECONNREFUSED.
+if (process.platform === 'win32' && dns.getServers().every((s) => s === '127.0.0.1')) {
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+}
 
 const MONGODB_URI = env.MONGODB_URI;
 

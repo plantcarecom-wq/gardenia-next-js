@@ -8,6 +8,7 @@ import { GardenerProfileModel } from '../modules/services/infrastructure/gardene
 import { ServiceOfferingModel } from '../modules/services/infrastructure/service-offering.model';
 import { normalizeCategoryCode } from '../modules/catalog/domain/category.utils';
 import { Roles } from '../shared/types/roles';
+import { DEFAULT_KYC_REGION } from '../shared/lib/kyc';
 import { env } from '../config/env';
 import bcrypt from 'bcryptjs';
 
@@ -422,6 +423,7 @@ async function seed() {
       serviceAreaCities: ['Lahore', 'Karachi'],
       experienceYears: 10,
       verificationStatus: 'approved',
+      kycRegion: DEFAULT_KYC_REGION,
     });
     console.log('Created Gardener Profile');
   }
