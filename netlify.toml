@@ -1,3 +1,6 @@
+# Netlify build config for this Next.js app. Without this file Netlify may
+# not correctly detect the Next.js runtime/plugin or Node version, which is
+# what left API routes (including auth) broken after the last deploy.
 [build]
   command = "npm run build"
 
