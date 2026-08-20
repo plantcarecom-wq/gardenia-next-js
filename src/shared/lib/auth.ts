@@ -6,6 +6,11 @@ import { verifyPassword } from '@/shared/lib/password';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: env.AUTH_SECRET,
+  // Auth.js only auto-trusts the request Host header on Vercel. On Netlify
+  // (and other non-Vercel hosts) it's untrusted by default, which throws
+  // UntrustedHost on every signIn/signOut/callback in production while
+  // working fine in local dev - this is what broke login/signup post-deploy.
+  trustHost: true,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
