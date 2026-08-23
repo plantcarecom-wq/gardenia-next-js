@@ -3,24 +3,8 @@ import { ProductModel } from '@/modules/catalog/infrastructure/product.model';
 import { requireRole } from '@/shared/lib/auth-guard';
 import { Roles } from '@/shared/types/roles';
 import { connectDB } from '@/shared/lib/db';
-import { isValidId, idSchema } from '@/shared/schemas/id.schema';
-import { z } from 'zod';
-
-const updateSchema = z.object({
-  categoryId: idSchema.optional(),
-  name: z.string().optional(),
-  slug: z.string().optional(),
-  description: z.string().optional(),
-  price: z.number().min(0).optional(),
-  stock: z.number().min(0).optional(),
-  sku: z.string().optional(),
-  isActive: z.boolean().optional(),
-  images: z.array(z.string()).optional(),
-  attributes: z.array(z.object({
-    name: z.string(),
-    value: z.string(),
-  })).optional(),
-});
+import { isValidId } from '@/shared/schemas/id.schema';
+import { productUpdateSchema as updateSchema, toGeoLocation } from '@/modules/catalog/schemas/product.schema';
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -39,8 +23,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     await connectDB();
-    const updateData: any = { ...parsed.data };
-    
+    const { latitude, longitude, ...rest } = parsed.data;
+    const updateData: any = { ...rest };
+    const location = toGeoLocation({ latitude, longitude });
+    if (location) updateData.location = location;
+
     if (parsed.data.slug) {
       const existing = await ProductModel.findOne({ slug: updateData.slug, _id: { $ne: id } });
       if (existing) {

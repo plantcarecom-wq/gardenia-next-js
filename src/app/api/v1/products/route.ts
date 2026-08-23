@@ -4,7 +4,7 @@ import { requireRole } from '@/shared/lib/auth-guard';
 import { auth } from '@/shared/lib/auth';
 import { Roles } from '@/shared/types/roles';
 import { connectDB } from '@/shared/lib/db';
-import { productCreateSchema } from '@/modules/catalog/schemas/product.schema';
+import { productCreateSchema, toGeoLocation } from '@/modules/catalog/schemas/product.schema';
 import { resolveProductImages } from '@/shared/lib/resolve-product-images';
 import { isValidId } from '@/shared/schemas/id.schema';
 
@@ -70,7 +70,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Product slug already exists' }, { status: 409 });
     }
 
-    const newProduct = await ProductModel.create(parsed.data);
+    const { latitude, longitude, ...productData } = parsed.data;
+    const location = toGeoLocation({ latitude, longitude });
+    const newProduct = await ProductModel.create(location ? { ...productData, location } : productData);
 
     return NextResponse.json({ success: true, data: newProduct }, { status: 201 });
   } catch (error: unknown) {

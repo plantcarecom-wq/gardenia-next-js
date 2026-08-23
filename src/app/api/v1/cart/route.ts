@@ -28,18 +28,45 @@ async function withResolvedImages(cart: any) {
   return cart;
 }
 
+import { cookies } from 'next/headers';
+import crypto from 'crypto';
+
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireRole([Roles.CUSTOMER]);
-    if (!auth.authorized) return auth.response;
+    const auth = await requireRole([Roles.CUSTOMER, Roles.GARDENER]);
+    const customerId = auth.authorized ? auth.user?.id : undefined;
+    
+    const cookieStore = await cookies();
+    let sessionId = cookieStore.get('cart_session')?.value;
+    
+    // If neither customerId nor sessionId is present, the cart is empty by definition.
+    if (!customerId && !sessionId) {
+      return NextResponse.json({ success: true, data: { items: [] } });
+    }
 
-    const customerId = auth.user?.id;
     await connectDB();
 
-    let cart = await CartModel.findOne({ customerId }).populate('items.productId', 'name slug imageMediaIds price').lean();
-    if (!cart) {
-      cart = await CartModel.create({ customerId, items: [] });
+    let cart;
+    if (customerId) {
+      cart = await CartModel.findOne({ customerId }).populate('items.productId', 'name slug imageMediaIds price').lean();
+      
+      // If we have a sessionId as well, we might want to merge it. 
+      // For simplicity, we just fetch the customer's cart if it exists.
+      if (!cart && sessionId) {
+        cart = await CartModel.findOne({ sessionId }).populate('items.productId', 'name slug imageMediaIds price').lean();
+        if (cart) {
+          // Merge to customer
+          await CartModel.updateOne({ _id: cart._id }, { $set: { customerId }, $unset: { sessionId: 1 } });
+        }
+      }
+    } else if (sessionId) {
+      cart = await CartModel.findOne({ sessionId }).populate('items.productId', 'name slug imageMediaIds price').lean();
     }
+
+    if (!cart) {
+      return NextResponse.json({ success: true, data: { items: [] } });
+    }
+    
     cart = await withResolvedImages(JSON.parse(JSON.stringify(cart)));
 
     return NextResponse.json({ success: true, data: cart });
@@ -51,10 +78,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireRole([Roles.CUSTOMER]);
-    if (!auth.authorized) return auth.response;
+    const auth = await requireRole([Roles.CUSTOMER, Roles.GARDENER]);
+    const customerId = auth.authorized ? auth.user?.id : undefined;
+    
+    const cookieStore = await cookies();
+    let sessionId = cookieStore.get('cart_session')?.value;
 
-    const customerId = auth.user?.id;
     const body = await req.json();
     const parsed = updateCartSchema.safeParse(body);
     
@@ -63,9 +92,29 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    let cart = await CartModel.findOne({ customerId });
+    
+    let cart;
+    if (customerId) {
+      cart = await CartModel.findOne({ customerId });
+      if (!cart && sessionId) {
+         cart = await CartModel.findOne({ sessionId });
+         if (cart) {
+            cart.customerId = customerId;
+            cart.sessionId = undefined;
+         }
+      }
+    } else if (sessionId) {
+      cart = await CartModel.findOne({ sessionId });
+    }
+
+    let responseHeaders = new Headers();
     if (!cart) {
-      cart = new CartModel({ customerId, items: [] });
+      if (!customerId && !sessionId) {
+        sessionId = crypto.randomUUID();
+        // Set the session cookie for 30 days
+        responseHeaders.append('Set-Cookie', `cart_session=${sessionId}; Path=/; Max-Age=${60 * 60 * 24 * 30}; HttpOnly; SameSite=Lax`);
+      }
+      cart = new CartModel(customerId ? { customerId, items: [] } : { sessionId, items: [] });
     }
 
     const { productId, qty } = parsed.data;
@@ -98,9 +147,10 @@ export async function POST(req: NextRequest) {
     await cart.populate('items.productId', 'name slug imageMediaIds price');
     const cartWithImages = await withResolvedImages(JSON.parse(JSON.stringify(cart)));
 
-    return NextResponse.json({ success: true, data: cartWithImages });
+    return NextResponse.json({ success: true, data: cartWithImages }, { headers: responseHeaders });
   } catch (error: unknown) {
     console.error(error);
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }
+

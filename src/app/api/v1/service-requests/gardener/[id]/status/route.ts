@@ -5,6 +5,7 @@ import { requireRole } from '@/shared/lib/auth-guard';
 import { Roles } from '@/shared/types/roles';
 import { requireServicesModule } from '@/shared/lib/services-flag';
 import { NotificationService } from '@/modules/notifications/application/notification.service';
+import { resolveGardenerCommissionRate } from '@/modules/services/application/resolve-gardener-rates';
 import { isValidId } from '@/shared/schemas/id.schema';
 import { z } from 'zod';
 
@@ -70,9 +71,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     if (newStatus === 'COMPLETED') {
-        // Mock commission logic (Phase 9.25 stub)
+        // Resolved once, here, and snapshotted — later changes to the
+        // gardener's subscription or the site default never retroactively
+        // rewrite a completed job's commission (requirements.md §5.11).
         request.completedAmount = request.quotedPrice || 0;
-        request.platformCommissionPercent = 10; // Default 10%
+        request.platformCommissionPercent = await resolveGardenerCommissionRate(auth.user!.id!);
         request.platformCommissionAmount = (request.completedAmount * request.platformCommissionPercent) / 100;
         request.commissionSettlementStatus = 'PENDING';
     }

@@ -18,6 +18,7 @@ import { CouponModel } from '@/modules/orders/infrastructure/coupon.model';
 import { resolveCoupon } from '@/modules/orders/application/resolve-coupon';
 import { NotificationService } from '@/modules/notifications/application/notification.service';
 import { idSchema } from '@/shared/schemas/id.schema';
+import { resolveGardenerItemDiscount } from '@/modules/services/application/resolve-gardener-rates';
 
 const checkoutSchema = z.object({
   addressId: idSchema,
@@ -27,10 +28,14 @@ const checkoutSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireRole([Roles.CUSTOMER]);
+    // Gardeners buy from the same catalog under their own account (e.g.
+    // sourcing supplies for a job) and get a resolved discount below — see
+    // requirements.md §5.11.
+    const auth = await requireRole([Roles.CUSTOMER, Roles.GARDENER]);
     if (!auth.authorized) return auth.response;
 
     const customerId = auth.user?.id;
+    const purchaserRole = (auth.user as { role?: string } | undefined)?.role;
     const body = await req.json();
     const parsed = checkoutSchema.safeParse(body);
     
@@ -136,7 +141,17 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            const totalAmount = subTotal + deliveryFee - discountAmount;
+            // Resolved server-side only (never a client-sent discount), kept
+            // separate from the coupon discount above so ledger/reporting can
+            // tell the two apart.
+            let gardenerDiscountPercent = 0;
+            let gardenerDiscountAmount = 0;
+            if (purchaserRole === Roles.GARDENER) {
+                gardenerDiscountPercent = await resolveGardenerItemDiscount(String(customerId));
+                gardenerDiscountAmount = Math.round((subTotal * gardenerDiscountPercent) / 100);
+            }
+
+            const totalAmount = subTotal + deliveryFee - discountAmount - gardenerDiscountAmount;
             const orderNumber = `ORD-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
             const orderCreationData = {
@@ -147,6 +162,8 @@ export async function POST(req: NextRequest) {
                 currency: orderCurrency,
                 discountCode: appliedCouponCode,
                 discountAmount,
+                gardenerDiscountPercent: gardenerDiscountPercent || undefined,
+                gardenerDiscountAmount: gardenerDiscountAmount || undefined,
                 shippingAddress: {
                     label: address.label,
                     line1: address.line1,
