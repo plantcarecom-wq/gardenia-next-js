@@ -25,8 +25,18 @@ export function ThemeToggle() {
       size="icon"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      className="relative overflow-hidden"
     >
-      {isDark ? <Sun className="h-5 w-5 text-muted-foreground" /> : <Moon className="h-5 w-5 text-muted-foreground" />}
+      <Sun
+        className={`absolute h-5 w-5 text-muted-foreground transition-all duration-500 ease-out ${
+          isDark ? 'rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'
+        }`}
+      />
+      <Moon
+        className={`absolute h-5 w-5 text-muted-foreground transition-all duration-500 ease-out ${
+          isDark ? 'rotate-0 scale-100 opacity-100' : '-rotate-90 scale-0 opacity-0'
+        }`}
+      />
     </Button>
   );
 }

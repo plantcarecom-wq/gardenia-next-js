@@ -33,7 +33,7 @@ export function Navbar() {
   const DashboardIcon = role === Roles.SUPER_ADMIN ? ShieldCheck : UserIcon;
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 w-full border-b border-emerald-500/15 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 transition-transform hover:scale-105">
           <div className="bg-primary/20 p-2 rounded-xl">

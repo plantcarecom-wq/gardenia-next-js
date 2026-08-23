@@ -3,13 +3,14 @@ import { MediaModel } from '@/modules/media/infrastructure/media.model';
 
 interface ProductWithImageIds {
   imageMediaIds?: string[];
+  imageUrls?: string[];
   [key: string]: unknown;
 }
 
 /**
  * Takes an array of plain product objects (each with an optional `imageMediaIds`
- * array of Media `_id`s) and returns them augmented with a resolved `images: string[]`
- * field containing the actual Media URLs. Missing/unresolvable ids are silently dropped.
+ * array of Media `_id`s and `imageUrls`) and returns them augmented with a resolved `images: string[]`
+ * field containing the actual Media URLs and direct imageUrls. Missing/unresolvable ids are silently dropped.
  */
 export async function resolveProductImages<T extends ProductWithImageIds>(
   products: T[]
@@ -28,10 +29,16 @@ export async function resolveProductImages<T extends ProductWithImageIds>(
     }
   }
 
-  return products.map((product) => ({
-    ...product,
-    images: (product.imageMediaIds ?? [])
+  return products.map((product) => {
+    const resolvedImages = (product.imageMediaIds ?? [])
       .map((id) => map.get(id))
-      .filter((u): u is string => !!u),
-  }));
+      .filter((u): u is string => !!u);
+      
+    const directImages = product.imageUrls ?? [];
+
+    return {
+      ...product,
+      images: [...resolvedImages, ...directImages],
+    };
+  });
 }
