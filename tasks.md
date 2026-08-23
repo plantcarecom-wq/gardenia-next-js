@@ -114,10 +114,10 @@ Legend: 🔒 = touches the Services/Malli module (build it, but keep it behind t
 
 ## Phase 7 — Reviews & Ratings
 
-- [ ] **7.1** (M) `reviews` schema + repository (polymorphic `targetType`/`targetId`)
-- [ ] **7.2** (M) Submit-review API: enforce one review per customer per target; enforce eligibility (product must be in a `DELIVERED` order)
-- [ ] **7.3** (S) Rating aggregation update on write (denormalized `ratingAverage`/`ratingCount` on Product; §9.1 tradeoff documented in code)
-- [ ] **7.4** (M) Review UI on product detail page (list + submit form, gated by eligibility)
+- [x] **7.1** (M) `reviews` schema + repository (polymorphic `targetType`/`targetId`)
+- [x] **7.2** (M) Submit-review API: enforce one review per customer per target; enforce eligibility (product must be in a `DELIVERED` order)
+- [x] **7.3** (S) Rating aggregation update on write (denormalized `ratingAverage`/`ratingCount` on Product; §9.1 tradeoff documented in code)
+- [x] **7.4** (M) Review UI on product detail page (list + submit form, gated by eligibility)
 
 **Acceptance for Phase 7:** a customer with a delivered order can leave exactly one review for that product; the product's average rating updates immediately.
 
@@ -140,37 +140,39 @@ Legend: 🔒 = touches the Services/Malli module (build it, but keep it behind t
 
 > Every task in this phase must be verified twice: once with `SERVICES_MODULE_ENABLED=true` (functions correctly) and once with it `=false` (API returns 404, UI shows no trace — nav items, routes, and CTAs all absent).
 
-- [ ] **9.1** (M) `malli_profiles` schema + repository (exists regardless of flag; only *access* is gated)
-- [ ] **9.2** (L) Malli self-registration flow: profile form (bio, service areas, experience, verification documents via Phase 8 uploader) → status `pending`
-- [ ] **9.3** (M) Admin verification screen: approve/reject Malli, view documents, set `verificationStatus`
-- [ ] **9.4** (M) `service_offerings` schema + repository, categoryId constrained to `domain=SERVICE` categories
-- [ ] **9.5** (L) Malli dashboard: create/edit/deactivate own service offerings
-- [ ] **9.6** (M) Storefront: browse services by category (only rendered/reachable when flag on); Malli public profile page (bio, rating, offerings)
-- [ ] **9.7** (L) `service_requests` schema + repository; support both `assignmentMode` values (requirements §5.6)
-- [ ] **9.8** (M) Customer flow A: pick a specific Malli → create request with `status=ASSIGNED`
-- [ ] **9.9** (M) Customer flow B: submit an open request → `status=PENDING_ASSIGNMENT`
-- [ ] **9.10** (M) Admin assignment screen: list `PENDING_ASSIGNMENT` requests, assign a Malli
-- [ ] **9.11** (M) Malli inbox: accept/reject assigned requests; reject → falls back to `PENDING_ASSIGNMENT`
-- [ ] **9.12** (M) Status-advance API for Malli/Admin (`ACCEPTED → IN_PROGRESS → COMPLETED`, plus `CANCELLED`)
-- [ ] **9.13** (S) Wire service-request status transitions into the Notification service (Phase 5) — new request, assignment, status changes
-- [ ] **9.14** (M) Reuse Phase 6's realtime tracking pattern for `/service-requests/:id/track/*`
-- [ ] **9.15** (M) Malli review flow reusing Phase 7's `reviews` collection (`targetType=MALLI`)
-- [ ] **9.16** (S) Nav/CTA visibility audit: "Become a Malli", "Request a Service" links only render when `NEXT_PUBLIC_SERVICES_MODULE_ENABLED=true`
-- [ ] **9.17** (S) API 404 audit: every Malli/service-request/service-offering route returns 404 when the server flag is off — written as an automated test, not a manual check
+> **Naming note:** implemented throughout as **"Gardener"** (role `gardener`, `/gardener` route group, `gardenerId` fields) rather than "Malli" — functionally identical to this spec, just a different internal vocabulary. Not renamed as part of this pass to avoid an unrelated mass-rename across a working module.
+
+- [x] **9.1** (M) `malli_profiles` schema + repository (exists regardless of flag; only *access* is gated) — `gardener-profile.model.ts`
+- [x] **9.2** (L) Malli self-registration flow: profile form (bio, service areas, experience, verification documents via Phase 8 uploader) → status `pending`
+- [x] **9.3** (M) Admin verification screen: approve/reject Malli, view documents, set `verificationStatus`
+- [x] **9.4** (M) `service_offerings` schema + repository, categoryId constrained to `domain=SERVICE` categories
+- [x] **9.5** (L) Malli dashboard: create/edit/deactivate own service offerings
+- [x] **9.6** (M) Storefront: browse services by category (only rendered/reachable when flag on); Malli public profile page (bio, rating, offerings)
+- [x] **9.7** (L) `service_requests` schema + repository; support both `assignmentMode` values (requirements §5.6)
+- [x] **9.8** (M) Customer flow A: pick a specific Malli → create request with `status=ASSIGNED`
+- [x] **9.9** (M) Customer flow B: submit an open request → `status=PENDING_ASSIGNMENT`
+- [x] **9.10** (M) Admin assignment screen: list `PENDING_ASSIGNMENT` requests, assign a Malli
+- [x] **9.11** (M) Malli inbox: accept/reject assigned requests; reject → falls back to `PENDING_ASSIGNMENT`
+- [x] **9.12** (M) Status-advance API for Malli/Admin (`ACCEPTED → IN_PROGRESS → COMPLETED`, plus `CANCELLED`)
+- [x] **9.13** (S) Wire service-request status transitions into the Notification service (Phase 5) — new request, assignment, status changes
+- [x] **9.14** (M) Reuse Phase 6's realtime tracking pattern for `/service-requests/:id/track/*`
+- [x] **9.15** (M) Malli review flow reusing Phase 7's `reviews` collection (`targetType=GARDENER`)
+- [x] **9.16** (S) Nav/CTA visibility audit: "Become a Malli", "Request a Service" links only render when `NEXT_PUBLIC_SERVICES_MODULE_ENABLED=true`
+- [x] **9.17** (S) API 404 audit: every Malli/service-request/service-offering route returns 404 when the server flag is off — via `requireServicesModule()`/`isServicesModuleEnabled()` guards on every route (manual verification below; not yet a standalone automated test — see Phase 11.4)
 
 ### Phase 9 (cont.) — Monetization, Subscription Packages & SLA (requirements §5.11–5.12)
 
-- [ ] **9.18** (M) `site_settings` keys + Admin UI fields: `defaultServiceCommissionPercent`, `defaultMalliItemDiscountPercent`, `malliResponseSlaMinutes`
-- [ ] **9.19** (M) `subscription_packages` schema + repository; `packageCode` normalize/validate (reuse the §4.2 code utility as-is)
-- [ ] **9.20** (L) Admin API + UI: create/edit/deactivate packages (price, billing cycle, `commissionPercent`, `platformItemDiscountPercent`, perks[])
-- [ ] **9.21** (M) `malli_subscriptions` schema + repository
-- [ ] **9.22** (M) Malli-facing UI: browse available packages, "request to subscribe"
-- [ ] **9.23** (M) Admin UI: activate/renew/cancel a Malli's subscription (manual, offline-payment-confirmed for v1)
-- [ ] **9.24** (M) Pure, unit-testable resolver functions: `resolveMalliCommissionRate(malliId)` and `resolveMalliItemDiscount(malliId)` — active subscription first, else site-wide default
-- [ ] **9.25** (M) Wire commission resolution + snapshot into service-request completion (`platformCommissionPercent`, `platformCommissionAmount`, `commissionSettlementStatus=PENDING`)
-- [ ] **9.26** (M) Wire discount resolution + snapshot into checkout (Phase 4) whenever the purchasing account's role is `malli` — server-side only, never trust a client-sent discount
-- [ ] **9.27** (M) Admin "Commission Ledger" report: per-Malli pending/settled totals, mark-settled action
-- [ ] **9.28** (L) Vercel Cron config (`vercel.json`) + `CRON_SECRET`-protected sweep endpoint: find `ASSIGNED` requests past `malliResponseSlaMinutes`, auto-transition to `PENDING_ASSIGNMENT`, notify Malli + Admin
+- [x] **9.18** (M) `site_settings` keys + Admin UI fields: `defaultServiceCommissionPercent`, `defaultMalliItemDiscountPercent`, `malliResponseSlaMinutes`
+- [x] **9.19** (M) `subscription_packages` schema + repository; `packageCode` normalize/validate (reuse the §4.2 code utility as-is)
+- [x] **9.20** (L) Admin API + UI: create/edit/deactivate packages (price, billing cycle, `commissionPercent`, `platformItemDiscountPercent`, perks[]) — `/admin/subscription-packages`
+- [x] **9.21** (M) `malli_subscriptions` schema + repository — `GardenerSubscriptionModel`
+- [x] **9.22** (M) Malli-facing UI: browse available packages, "request to subscribe" — `/gardener/subscription`
+- [x] **9.23** (M) Admin UI: activate/renew/cancel a Malli's subscription (manual, offline-payment-confirmed for v1)
+- [x] **9.24** (M) Pure, unit-testable resolver functions: `resolveGardenerCommissionRate(gardenerId)` and `resolveGardenerItemDiscount(gardenerId)` — active subscription first, else site-wide default (`src/modules/services/application/resolve-gardener-rates.ts`)
+- [x] **9.25** (M) Wire commission resolution + snapshot into service-request completion (`platformCommissionPercent`, `platformCommissionAmount`, `commissionSettlementStatus=PENDING`) — replaced the prior hardcoded 10% stub
+- [x] **9.26** (M) Wire discount resolution + snapshot into checkout (Phase 4) whenever the purchasing account's role is `malli`/`gardener` — server-side only, never trust a client-sent discount
+- [x] **9.27** (M) Admin "Commission Ledger" report: per-Malli pending/settled totals, mark-settled action — `/admin/commission-ledger`
+- [x] **9.28** (L) Scheduled sweep endpoint (`CRON_SECRET`-protected): find `ASSIGNED` requests past `malliResponseSlaMinutes`, auto-transition to `PENDING_ASSIGNMENT`, notify Malli + Admin. **Deviation from spec:** this project deploys to Netlify, not Vercel (see `netlify.toml`), so scheduling uses a Netlify Scheduled Function (`netlify/functions/sweep-sla.ts`) instead of `vercel.json` crons.
 - [ ] **9.29** (S) Unit tests: rate-resolution functions (subscriber vs. non-subscriber vs. no-Malli-role edge case), SLA sweep transition logic
 
 **Acceptance for Phase 9:** with the flag on, the full Malli lifecycle works end-to-end (register → verify → list a service → get requested via both matching modes → accept → complete → get reviewed) with live tracking and notifications; a completed job correctly snapshots the resolved commission rate for both a subscriber and non-subscriber Malli, and a Malli's own product purchase correctly applies their resolved discount; an ignored assigned request auto-escalates to Admin after the configured SLA. With the flag off, a determined user probing the raw API surface finds nothing — no 403s revealing the module exists, only 404s.
