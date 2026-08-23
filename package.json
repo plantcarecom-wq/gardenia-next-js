@@ -14,15 +14,18 @@
     "seed:categories": "tsx --env-file=.env src/scripts/seed-categories.ts",
     "seed": "tsx --env-file=.env src/scripts/seed.ts",
     "seed:blog": "tsx --env-file=.env src/scripts/seed-blog.ts",
-    "seed:all": "npm run seed:admin && npm run seed:categories && npm run seed && npm run seed:blog"
+    "seed:all": "npm run seed:admin && npm run seed:categories && npm run seed && npm run seed:blog",
+    "db:fix-cart-indexes": "tsx --env-file=.env src/scripts/fix-cart-indexes.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@netlify/functions": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.10.0",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.21",
+    "framer-motion": "^13.1.1",
     "lucide-react": "^1.28.0",
     "mongodb": "^7.5.0",
     "mongoose": "^9.9.1",

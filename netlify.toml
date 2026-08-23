@@ -3,6 +3,7 @@
 # what left API routes (including auth) broken after the last deploy.
 [build]
   command = "npm run build"
+  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
