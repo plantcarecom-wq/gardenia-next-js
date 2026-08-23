@@ -8,6 +8,7 @@ const links = [
   { href: '/gardener', label: 'My Profile' },
   { href: '/gardener/offerings', label: 'My Services' },
   { href: '/gardener/requests', label: 'Requests' },
+  { href: '/gardener/subscription', label: 'Subscription' },
 ];
 
 export function GardenerSidebar() {

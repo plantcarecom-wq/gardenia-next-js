@@ -90,7 +90,7 @@ export default function GardenerOfferingsPage() {
 
   const openCreate = () => {
     setEditingOffering(null);
-    setFormData(emptyForm);
+    setFormData({ ...emptyForm, categoryId: categories[0]?._id || '' });
     setIsDialogOpen(true);
   };
 

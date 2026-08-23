@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useFormatPrice } from '@/shared/components/CurrencyProvider';
 import { useStore } from '@/shared/store';
+import { ImageUploader } from '@/components/media/image-uploader';
 
 type Product = {
   _id: string;
@@ -24,6 +25,9 @@ type Product = {
   stockQty: number;
   sku: string;
   isActive: boolean;
+  region?: string;
+  city?: string;
+  location?: { type: 'Point'; coordinates: [number, number] };
 };
 
 type Category = {
@@ -45,11 +49,18 @@ export default function ProductsPage() {
     slug: '',
     categoryId: '',
     description: '',
+    imageMediaIds: [] as string[],
     price: 0,
     stockQty: 0,
     sku: '',
     isActive: true,
+    region: '',
+    city: '',
+    latitude: '',
+    longitude: '',
   });
+  
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,24 +87,30 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     setEditingProduct(null);
-    setFormData({ name: '', slug: '', categoryId: categories[0]?._id || '', description: '', price: 0, stockQty: 0, sku: '', isActive: true });
+    setFormData({ name: '', slug: '', categoryId: categories[0]?._id || '', description: '', imageMediaIds: [], price: 0, stockQty: 0, sku: '', isActive: true, region: '', city: '', latitude: '', longitude: '' });
     setIsDialogOpen(true);
   };
 
-  const openEdit = (p: Product) => {
+  const openEdit = (p: Product & { imageMediaIds?: string[] }) => {
     setEditingProduct(p);
     setFormData({
       name: p.name,
       slug: p.slug,
       categoryId: p.categoryId,
       description: p.description || '',
+      imageMediaIds: p.imageMediaIds || [],
       price: p.price,
       stockQty: p.stockQty,
       sku: p.sku,
-      isActive: p.isActive
+      isActive: p.isActive,
+      region: p.region || '',
+      city: p.city || '',
+      latitude: p.location ? String(p.location.coordinates[1]) : '',
+      longitude: p.location ? String(p.location.coordinates[0]) : '',
     });
     setIsDialogOpen(true);
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +119,13 @@ export default function ProductsPage() {
       return;
     }
 
+    const { latitude, longitude, ...rest } = formData;
+    const payload = {
+      ...rest,
+      latitude: latitude !== '' ? Number(latitude) : undefined,
+      longitude: longitude !== '' ? Number(longitude) : undefined,
+    };
+
     const url = editingProduct ? `/api/v1/products/${editingProduct._id}` : '/api/v1/products';
     const method = editingProduct ? 'PUT' : 'POST';
 
@@ -109,10 +133,11 @@ export default function ProductsPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         setIsDialogOpen(false);
+
         fetchData();
       } else {
         const data = await res.json();
@@ -268,6 +293,15 @@ export default function ProductsPage() {
                 />
               </div>
               <div className="grid gap-2">
+                <Label>Photos</Label>
+                <ImageUploader 
+                  value={formData.imageMediaIds} 
+                  onChange={(ids) => setFormData({ ...formData, imageMediaIds: ids })} 
+                  maxFiles={4} 
+                  folder="products" 
+                />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="sku">SKU</Label>
                 <Input
                   id="sku"
@@ -275,6 +309,51 @@ export default function ProductsPage() {
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="region">Region</Label>
+                  <Input
+                    id="region"
+                    placeholder="e.g. Punjab"
+                    value={formData.region}
+                    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input
+                    id="city"
+                    placeholder="e.g. Lahore"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="latitude">Latitude</Label>
+                  <Input
+                    id="latitude"
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 31.5204"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="longitude">Longitude</Label>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="any"
+                    placeholder="e.g. 74.3587"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground -mt-2">Used to prioritize this product for nearby customers on the storefront ("near me" browsing).</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="price">Price</Label>
