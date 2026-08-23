@@ -33,6 +33,10 @@ export interface IGardenerProfile extends Document<string> {
   ratingCount: number;
   approvedBy?: string;
   approvedAt?: Date;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,8 +63,14 @@ const gardenerProfileSchema = new Schema<IGardenerProfile>(
     ratingCount: { type: Number, default: 0 },
     approvedBy: { type: String, ref: 'User' },
     approvedAt: { type: Date },
+    location: {
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number] },
+    },
   },
   { timestamps: true }
 );
+
+gardenerProfileSchema.index({ location: '2dsphere' });
 
 export const GardenerProfileModel = mongoose.models.GardenerProfile || mongoose.model<IGardenerProfile>('GardenerProfile', gardenerProfileSchema);

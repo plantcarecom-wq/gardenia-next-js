@@ -9,6 +9,7 @@ export interface IProduct extends Document<string> {
   categoryId: string;
   description: string;
   imageMediaIds: string[];
+  imageUrls: string[];
   price: number;
   discountPrice?: number;
   stockQty: number;
@@ -18,6 +19,12 @@ export interface IProduct extends Document<string> {
   isFeatured: boolean;
   ratingAverage: number;
   ratingCount: number;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number]; // [longitude, latitude]
+  };
+  region?: string;
+  city?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +38,7 @@ const productSchema = new Schema<IProduct>(
     categoryId: { type: String, ref: 'Category', required: true, index: true },
     description: { type: String, required: true },
     imageMediaIds: [{ type: String }],
+    imageUrls: [{ type: String }],
     price: { type: Number, required: true, min: 0 },
     discountPrice: { type: Number, min: 0 },
     stockQty: { type: Number, required: true, min: 0, default: 0 },
@@ -40,11 +48,20 @@ const productSchema = new Schema<IProduct>(
     isFeatured: { type: Boolean, default: false },
     ratingAverage: { type: Number, default: 0 },
     ratingCount: { type: Number, default: 0 },
+    location: {
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number] },
+    },
+    region: { type: String, index: true },
+    city: { type: String, index: true },
   },
   { timestamps: true }
 );
 
 // Compound index for category filtering of active products
 productSchema.index({ categoryId: 1, isActive: 1 });
+
+// Geospatial index for radius-based queries
+productSchema.index({ location: '2dsphere' });
 
 export const ProductModel = mongoose.models.Product || mongoose.model<IProduct>('Product', productSchema);

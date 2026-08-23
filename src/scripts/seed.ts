@@ -348,21 +348,30 @@ async function seed() {
   const mediaIdByKey = new Map<string, string>();
   if (uploader) {
     for (const { key, label } of MEDIA_POOL) {
-      const url = `https://placehold.co/800x600/dcfce7/166534?text=${encodeURIComponent(label)}`;
+      // Use the newly generated high-quality placeholder images based on keywords
+      let imageUrl = '/images/demo/indoor_monstera.jpg';
+      if (key.includes('pot') || key.includes('planter')) {
+        imageUrl = '/images/demo/ceramic_pot.jpg';
+      } else if (key.includes('tools') || key.includes('shears') || key.includes('can')) {
+        imageUrl = '/images/demo/gardening_service.jpg';
+      }
+
+      // Add a random query string so they appear distinct in the gallery if we reuse them
+      const url = `${imageUrl}?ref=${key}`;
       const media = await MediaModel.findOneAndUpdate(
         { url },
         {
           provider: 'local',
           url,
           mimeType: 'image/jpeg',
-          size: 100000,
+          size: 150000,
           uploadedBy: uploader._id,
         },
         { upsert: true, new: true }
       );
       mediaIdByKey.set(key, media._id.toString());
     }
-    console.log(`Seeded ${mediaIdByKey.size} media documents`);
+    console.log(`Seeded ${mediaIdByKey.size} media documents with photorealistic images`);
   } else {
     console.warn('No admin or Gardener user available to attribute media uploads to; skipping media seed.');
   }

@@ -30,6 +30,11 @@ export interface IOrder extends Document<string> {
   currency: string;
   discountCode?: string;
   discountAmount: number;
+  // Set only when the purchasing account's role is `gardener` — resolved
+  // server-side from their active subscription (or the site default) at
+  // checkout time and snapshotted here, never re-derived later.
+  gardenerDiscountPercent?: number;
+  gardenerDiscountAmount?: number;
   paymentMethod: string;
   status: OrderStatus;
   statusHistory: IOrderStatusHistory[];
@@ -66,6 +71,8 @@ const orderSchema = new Schema<IOrder>(
     currency: { type: String, required: true, default: 'PKR' },
     discountCode: { type: String },
     discountAmount: { type: Number, default: 0, min: 0 },
+    gardenerDiscountPercent: { type: Number, min: 0, max: 100 },
+    gardenerDiscountAmount: { type: Number, min: 0 },
     paymentMethod: { type: String, required: true },
     status: { type: String, required: true, index: true, default: 'pending' },
     statusHistory: [orderStatusHistorySchema],

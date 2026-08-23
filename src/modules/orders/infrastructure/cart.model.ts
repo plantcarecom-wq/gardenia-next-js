@@ -10,7 +10,8 @@ export interface ICartItem {
 
 export interface ICart extends Document<string> {
   _id: string;
-  customerId: string;
+  customerId?: string;
+  sessionId?: string;
   items: ICartItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -26,7 +27,8 @@ const cartItemSchema = new Schema<ICartItem>({
 const cartSchema = new Schema<ICart>(
   {
     _id: { type: String, default: generateId },
-    customerId: { type: String, ref: 'User', required: true, unique: true, index: true },
+    customerId: { type: String, ref: 'User', unique: true, sparse: true },
+    sessionId: { type: String, unique: true, sparse: true },
     items: [cartItemSchema],
   },
   { timestamps: true }

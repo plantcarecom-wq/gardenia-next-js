@@ -12,6 +12,10 @@ export interface IServiceOffering extends Document<string> {
   imageMediaIds: string[];
   serviceAreaCities: string[];
   isActive: boolean;
+  location?: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,8 +32,14 @@ const serviceOfferingSchema = new Schema<IServiceOffering>(
     imageMediaIds: [{ type: String }],
     serviceAreaCities: [{ type: String }],
     isActive: { type: Boolean, default: true },
+    location: {
+      type: { type: String, enum: ['Point'] },
+      coordinates: { type: [Number] },
+    },
   },
   { timestamps: true }
 );
+
+serviceOfferingSchema.index({ location: '2dsphere' });
 
 export const ServiceOfferingModel = mongoose.models.ServiceOffering || mongoose.model<IServiceOffering>('ServiceOffering', serviceOfferingSchema);
