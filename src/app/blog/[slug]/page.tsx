@@ -24,11 +24,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <div className="min-h-screen bg-white dark:bg-background">
       <div className="container mx-auto px-4 md:px-6 py-10 max-w-3xl">
-        <Link href="/blog" className="inline-flex items-center text-sm text-muted-foreground hover:text-emerald-600 mb-8 transition-colors">
+        <Link href="/blog" className="flex w-fit items-center text-sm text-muted-foreground hover:text-emerald-600 mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Guides
         </Link>
 
-        <span className="text-xs font-medium text-emerald-600 uppercase tracking-wider">
+        <span className="block text-xs font-medium text-emerald-600 uppercase tracking-wider">
           {formatDate(post.publishedAt)}
         </span>
         <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-2 mb-6">{post.title}</h1>

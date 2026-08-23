@@ -14,6 +14,8 @@ import { RequestServiceButton } from './request-service-button';
 
 type PopulatedRef = { _id: string; name?: string };
 
+import { AnimatedSlider } from '@/components/ui/animated-slider';
+
 export const dynamic = 'force-dynamic';
 
 function priceSuffix(priceType: string) {
@@ -70,47 +72,43 @@ export default async function ServiceOfferingDetailPage({ params }: { params: Pr
   const category = offering.categoryId as unknown as PopulatedRef;
 
   return (
-    <div className="min-h-screen bg-white dark:bg-background">
-      <div className="container mx-auto px-4 md:px-6 py-8">
-        <Link href="/services" className="inline-flex items-center text-sm text-muted-foreground hover:text-emerald-600 mb-8 transition-colors">
+    <div className="min-h-screen bg-[#0a0a0a] text-gray-200 relative overflow-hidden">
+      {/* Abstract Background Elements */}
+      <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-emerald-900/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[40%] h-[40%] bg-emerald-800/10 rounded-full blur-[100px] pointer-events-none" />
+      
+      <div className="container mx-auto px-4 md:px-6 py-12 relative z-10">
+        <Link href="/services" className="inline-flex items-center text-sm text-gray-400 hover:text-emerald-400 mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Services
         </Link>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Image */}
-          <div className="space-y-4">
-            <div className="aspect-[4/5] bg-gray-50 dark:bg-muted rounded-2xl overflow-hidden border border-gray-100 dark:border-border flex items-center justify-center relative">
-              {offering.images && offering.images.length > 0 ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={offering.images[0]} alt={offering.title} className="object-cover w-full h-full" />
-              ) : (
-                <div className="flex flex-col items-center justify-center text-gray-300 dark:text-gray-700 space-y-4">
-                  <Leaf className="w-24 h-24 opacity-20" />
-                  <span className="text-sm uppercase tracking-widest font-medium">No Image</span>
-                </div>
-              )}
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16">
+          {/* Image Gallery */}
+          <div className="w-full lg:col-span-6">
+            <div className="sticky top-24">
+              <AnimatedSlider images={offering.images || []} />
             </div>
           </div>
 
-          {/* Info */}
-          <div className="flex flex-col">
-            <div className="mb-2 flex items-center gap-2">
+          {/* Service Info */}
+          <div className="flex flex-col lg:col-span-6 animate-in fade-in slide-in-from-bottom-8 duration-700 pt-4">
+            <div className="mb-4 flex flex-wrap items-center gap-3">
               {category?.name && (
-                <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium px-2.5 py-1">
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest border border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
                   {category.name}
                 </span>
               )}
             </div>
-
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 dark:text-foreground mb-2">
+            
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white mb-4 leading-[1.1] drop-shadow-2xl">
               {offering.title}
             </h1>
 
             {gardener?.name && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                <span>by {gardener.name}</span>
+              <div className="flex items-center gap-3 text-sm text-gray-400 mb-6">
+                <span className="font-medium">by {gardener.name}</span>
                 {gardenerProfile && gardenerProfile.ratingCount > 0 && (
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 bg-white/5 px-2.5 py-1 rounded-full border border-white/5">
                     <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                     {gardenerProfile.ratingAverage.toFixed(1)} ({gardenerProfile.ratingCount})
                   </span>
@@ -118,46 +116,50 @@ export default async function ServiceOfferingDetailPage({ params }: { params: Pr
               </div>
             )}
 
-            <div className="text-3xl font-bold text-emerald-600 mb-6">
+            <div className="text-4xl lg:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-emerald-200 mb-8 drop-shadow-sm flex items-baseline">
               {formatPrice(offering.price, currency)}
-              <span className="text-base font-normal text-muted-foreground">{priceSuffix(offering.priceType)}</span>
+              <span className="text-lg font-bold text-gray-500 ml-2">{priceSuffix(offering.priceType)}</span>
             </div>
 
-            <div className="prose prose-emerald dark:prose-invert max-w-none mb-8 text-gray-600 dark:text-muted-foreground">
-              <p>{offering.description}</p>
+            <p className="text-gray-400 leading-relaxed font-light mb-8 line-clamp-3">
+              {offering.description}
+            </p>
+
+            {/* Glassmorphic Request Service Section */}
+            <div className="mb-10 p-6 bg-white/5 rounded-3xl border border-white/10 shadow-2xl backdrop-blur-xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <RequestServiceButton categoryId={category._id} gardenerId={gardener._id} />
             </div>
 
+            {/* About & Value Props */}
             {gardenerProfile?.bio && (
-              <div className="mb-8 bg-gray-50 dark:bg-muted/40 rounded-2xl p-6 border border-gray-100 dark:border-border">
-                <h4 className="font-semibold text-sm mb-2">About the Gardener</h4>
-                <p className="text-sm text-muted-foreground">{gardenerProfile.bio}</p>
+              <div className="mb-10 p-6 rounded-3xl bg-black/40 border border-white/5">
+                <h4 className="font-bold text-lg mb-3 text-gray-300">About the Gardener</h4>
+                <p className="text-sm text-gray-400 leading-relaxed mb-3">{gardenerProfile.bio}</p>
                 {gardenerProfile.experienceYears > 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">{gardenerProfile.experienceYears} years of experience</p>
+                  <p className="text-xs text-emerald-400 font-medium">{gardenerProfile.experienceYears} years of professional experience</p>
                 )}
               </div>
             )}
 
-            <div className="h-px bg-gray-100 dark:bg-border w-full mb-8" />
-
-            <RequestServiceButton
-              categoryId={category._id}
-              gardenerId={gardener._id}
-            />
-
             {offering.serviceAreaCities && offering.serviceAreaCities.length > 0 && (
-              <div className="grid grid-cols-1 gap-4 bg-gray-50 dark:bg-muted/40 rounded-2xl p-6 border border-gray-100 dark:border-border">
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+                    <MapPin className="w-5 h-5 shrink-0" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-sm">Service Areas</h4>
-                    <p className="text-xs text-muted-foreground">{offering.serviceAreaCities.join(', ')}</p>
+                    <h4 className="font-bold text-sm text-gray-200 tracking-wide">Service Areas</h4>
+                    <p className="text-xs text-gray-500 mt-1">{offering.serviceAreaCities.join(', ')}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-4 p-5 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400">
+                    <ShieldCheck className="w-5 h-5 shrink-0" />
+                  </div>
                   <div>
-                    <h4 className="font-semibold text-sm">Verified Gardener</h4>
-                    <p className="text-xs text-muted-foreground">Identity and documents reviewed by our team.</p>
+                    <h4 className="font-bold text-sm text-gray-200 tracking-wide">Verified Professional</h4>
+                    <p className="text-xs text-gray-500 mt-1">Identity & documents verified.</p>
                   </div>
                 </div>
               </div>
@@ -165,7 +167,16 @@ export default async function ServiceOfferingDetailPage({ params }: { params: Pr
           </div>
         </div>
 
-        <ReviewsSection targetType="GARDENER" targetId={gardener._id} subjectLabel="Gardener" />
+        <div className="mt-16 pt-16 border-t border-white/10">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-6">Description</h2>
+          <div className="prose prose-lg prose-invert max-w-none text-gray-400 leading-relaxed font-light">
+            <p>{offering.description}</p>
+          </div>
+        </div>
+
+        <div className="mt-16 pt-16 border-t border-white/10">
+          <ReviewsSection targetType="GARDENER" targetId={gardener._id} subjectLabel="Gardener" />
+        </div>
       </div>
     </div>
   );

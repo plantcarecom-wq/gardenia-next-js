@@ -76,89 +76,102 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-muted/30">
-      <Card className="w-full max-w-md shadow-xl border-border/50 my-8">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <div className="mx-auto bg-primary/10 p-3 rounded-2xl w-fit mb-2">
-            <Leaf className="h-8 w-8 text-primary" />
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden py-12">
+      {/* Abstract Background Elements */}
+      <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-emerald-900/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] left-[-10%] w-[40%] h-[40%] bg-emerald-800/10 rounded-full blur-[100px] pointer-events-none" />
+      
+      <Card className="w-full max-w-lg shadow-2xl border border-white/10 bg-black/40 backdrop-blur-xl relative z-10 rounded-3xl overflow-hidden my-8">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-50 pointer-events-none" />
+        
+        <CardHeader className="space-y-3 text-center pt-10 pb-6 relative z-10">
+          <div className="mx-auto bg-emerald-500/10 p-4 rounded-full w-fit mb-4 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+            <Leaf className="h-8 w-8 text-emerald-400" />
           </div>
-          <CardTitle className="text-3xl font-bold tracking-tight">Create an account</CardTitle>
-          <CardDescription className="text-base">
+          <CardTitle className="text-3xl md:text-4xl font-black tracking-tight text-white drop-shadow-md">Create an account</CardTitle>
+          <CardDescription className="text-gray-400 text-sm">
             Join Gardenia to start shopping premium plants
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="relative z-10 px-8 pb-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-lg font-medium text-center">
+              <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl font-medium text-center">
                 {error}
               </div>
             )}
             {showGardenerOption && (
-              <div className="space-y-2">
-                <Label>I want to...</Label>
+              <div className="space-y-3">
+                <Label className="text-gray-300 font-medium ml-1">I want to...</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setIsGardener(false)}
                     className={cn(
-                      'flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-sm font-medium transition-colors',
-                      !isGardener ? 'border-primary bg-primary/5 text-foreground' : 'border-border text-muted-foreground hover:border-primary/40'
+                      'flex flex-col items-center gap-3 rounded-2xl border p-5 text-sm font-bold transition-all duration-300',
+                      !isGardener 
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
                     )}
                   >
-                    <ShoppingBag className="h-5 w-5" />
+                    <ShoppingBag className="h-6 w-6" />
                     Shop plants
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsGardener(true)}
                     className={cn(
-                      'flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-sm font-medium transition-colors',
-                      isGardener ? 'border-primary bg-primary/5 text-foreground' : 'border-border text-muted-foreground hover:border-primary/40'
+                      'flex flex-col items-center gap-3 rounded-2xl border p-5 text-sm font-bold transition-all duration-300',
+                      isGardener 
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' 
+                        : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-gray-300'
                     )}
                   >
-                    <Sprout className="h-5 w-5" />
-                    Sell as a Gardener
+                    <Sprout className="h-6 w-6" />
+                    Sell as Gardener
                   </button>
                 </div>
                 {isGardener && (
-                  <p className="text-xs text-muted-foreground pt-1">
+                  <p className="text-xs text-emerald-500/80 pt-1 ml-1 font-medium">
                     Gardener accounts require admin approval before you can list services.
                   </p>
                 )}
               </div>
             )}
+            
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input id="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required className="h-11" />
+              <Label htmlFor="name" className="text-gray-300 font-medium ml-1">Full Name</Label>
+              <Input id="name" placeholder="John Doe" value={formData.name} onChange={handleChange} required className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-emerald-500 focus:ring-emerald-500/50 rounded-xl transition-all" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="name@example.com" value={formData.email} onChange={handleChange} required className="h-11" />
+              <Label htmlFor="email" className="text-gray-300 font-medium ml-1">Email</Label>
+              <Input id="email" type="email" placeholder="name@example.com" value={formData.email} onChange={handleChange} required className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-emerald-500 focus:ring-emerald-500/50 rounded-xl transition-all" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
-              <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" value={formData.phone} onChange={handleChange} className="h-11" />
+              <Label htmlFor="phone" className="text-gray-300 font-medium ml-1">Phone Number (Optional)</Label>
+              <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" value={formData.phone} onChange={handleChange} className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-emerald-500 focus:ring-emerald-500/50 rounded-xl transition-all" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="Min. 8 characters" value={formData.password} onChange={handleChange} required minLength={8} className="h-11" />
+              <Label htmlFor="password" className="text-gray-300 font-medium ml-1">Password</Label>
+              <Input id="password" type="password" placeholder="Min. 8 characters" value={formData.password} onChange={handleChange} required minLength={8} className="h-12 bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-emerald-500 focus:ring-emerald-500/50 rounded-xl transition-all" />
             </div>
-            <Button type="submit" className="w-full h-11 text-base mt-2 shadow-md shadow-primary/20" disabled={loading}>
+            
+            <Button type="submit" className="w-full h-12 text-base mt-6 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-900/20 transition-all font-bold tracking-wide" disabled={loading}>
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
-            <p className="text-xs text-muted-foreground text-center">
+            
+            <p className="text-xs text-gray-500 text-center leading-relaxed">
               By creating an account, you agree to our{' '}
-              <Link href="/legal/terms" className="underline hover:text-foreground">Terms & Conditions</Link>{' '}
+              <Link href="/legal/terms" className="text-gray-400 hover:text-white underline decoration-gray-600 transition-colors">Terms & Conditions</Link>{' '}
               and{' '}
-              <Link href="/legal/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+              <Link href="/legal/privacy" className="text-gray-400 hover:text-white underline decoration-gray-600 transition-colors">Privacy Policy</Link>.
             </p>
           </form>
         </CardContent>
-        <CardFooter className="flex justify-center border-t border-border/50 pt-6">
-          <p className="text-sm text-muted-foreground">
+        <CardFooter className="flex justify-center border-t border-white/10 py-6 relative z-10 bg-white/5">
+          <p className="text-sm text-gray-400">
             Already have an account?{' '}
-            <Link href="/login" className="font-semibold text-primary hover:underline">
+            <Link href="/login" className="font-bold text-emerald-400 hover:text-emerald-300 hover:underline transition-colors">
               Log in
             </Link>
           </p>

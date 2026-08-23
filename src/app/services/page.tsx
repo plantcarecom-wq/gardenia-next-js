@@ -10,14 +10,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatPrice } from '@/shared/lib/format-price';
 import { getSiteCurrency } from '@/shared/lib/get-site-currency';
 
+import { ServiceCard } from '@/components/ui/service-card';
+import { resolveProductImages } from '@/shared/lib/resolve-product-images';
+import { Container } from '@/shared/components/Container';
+
 export const dynamic = 'force-dynamic';
 
 async function getServiceOfferings(searchParams: { [key: string]: string | string[] | undefined }) {
   await connectDB();
   const categoryId = typeof searchParams.categoryId === 'string' ? searchParams.categoryId : undefined;
+  const gardenerId = typeof searchParams.gardenerId === 'string' ? searchParams.gardenerId : undefined;
 
   const filter: Record<string, any> = { isActive: true };
   if (categoryId) filter.categoryId = categoryId;
+  if (gardenerId) filter.gardenerId = gardenerId;
 
   const offerings = await ServiceOfferingModel.find(filter)
     .populate('categoryId', 'name')
@@ -25,7 +31,12 @@ async function getServiceOfferings(searchParams: { [key: string]: string | strin
     .sort({ createdAt: -1 })
     .lean();
 
-  return JSON.parse(JSON.stringify(offerings));
+  const [resolvedOfferings] = await resolveProductImages([JSON.parse(JSON.stringify(offerings))]);
+  
+  // Actually resolveProductImages takes an array of items directly. Wait, looking at products/page.tsx:
+  // resolveProductImages takes an array. So:
+  const resolved = await resolveProductImages(JSON.parse(JSON.stringify(offerings)));
+  return resolved;
 }
 
 async function getServiceCategories() {
@@ -36,12 +47,6 @@ async function getServiceCategories() {
   const categoryTypeIds = serviceCategoryTypes.map((ct: any) => ct._id);
   const categories = await CategoryModel.find({ categoryTypeId: { $in: categoryTypeIds }, isActive: true }).lean();
   return JSON.parse(JSON.stringify(categories));
-}
-
-function priceSuffix(priceType: string) {
-  if (priceType === 'hourly') return '/hr';
-  if (priceType === 'variable') return '+';
-  return '';
 }
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -58,14 +63,17 @@ export default async function ServicesPage({ searchParams }: { searchParams: Sea
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-background pb-20">
-      <div className="bg-emerald-900 text-white py-12 md:py-16">
-        <div className="container px-4 md:px-6">
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Gardening Services</h1>
-          <p className="text-emerald-100 max-w-2xl text-lg">Book a trusted Gardener for garden care, landscaping, and more, right in your area.</p>
+      <div className="bg-background border-b border-border py-16 md:py-24 flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-black dark:bg-[#0a0a0a] z-0">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20" />
         </div>
+        <Container size="wide" className="relative z-10 flex flex-col items-center">
+          <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6 text-white bg-clip-text text-transparent bg-gradient-to-br from-white to-white/70">Gardening Services</h1>
+          <p className="text-gray-400 max-w-2xl text-lg md:text-xl">Book a trusted Gardener for garden care, landscaping, and more, right in your area.</p>
+        </Container>
       </div>
 
-      <div className="container px-4 md:px-6 py-8">
+      <Container size="wide" className="py-8">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
           <aside className="w-full md:w-64 shrink-0">
@@ -110,41 +118,13 @@ export default async function ServicesPage({ searchParams }: { searchParams: Sea
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {offerings.map((offering: any) => (
-                  <Link key={offering._id} href={`/services/${offering._id}`}>
-                  <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-300 group border-gray-100 dark:border-border bg-white dark:bg-card">
-                    <CardContent className="p-5">
-                      <div className="flex items-center justify-between mb-2">
-                        {offering.categoryId?.name && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium px-2.5 py-1">
-                            {offering.categoryId.name}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-emerald-600 transition-colors">
-                        {offering.title}
-                      </h3>
-                      {offering.gardenerId?.name && (
-                        <p className="text-sm text-muted-foreground mb-2">by {offering.gardenerId.name}</p>
-                      )}
-                      <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{offering.description}</p>
-                      <div className="flex items-center justify-between mt-auto">
-                        <span className="font-bold text-lg">
-                          {formatPrice(offering.price, currency)}
-                          <span className="text-sm font-normal text-muted-foreground">{priceSuffix(offering.priceType)}</span>
-                        </span>
-                        <div className="text-sm font-medium text-emerald-600 flex items-center">
-                          View details <ChevronRight className="w-4 h-4 ml-1" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  </Link>
+                  <ServiceCard key={offering._id} offering={offering} currency={currency} />
                 ))}
               </div>
             )}
           </main>
         </div>
-      </div>
+      </Container>
     </div>
   );
 }

@@ -84,22 +84,22 @@
 .dark {
   --background: oklch(0.12 0.02 120);
   --foreground: oklch(0.98 0.01 120);
-  --card: oklch(0.15 0.03 120);
+  --card: oklch(0.19 0.025 120);
   --card-foreground: oklch(0.98 0.01 120);
-  --popover: oklch(0.15 0.03 120);
+  --popover: oklch(0.19 0.025 120);
   --popover-foreground: oklch(0.98 0.01 120);
   --primary: oklch(0.65 0.15 140);
   --primary-foreground: oklch(0.15 0.03 120);
   --secondary: oklch(0.25 0.05 130);
   --secondary-foreground: oklch(0.98 0.01 120);
-  --muted: oklch(0.2 0.02 120);
-  --muted-foreground: oklch(0.65 0.05 120);
+  --muted: oklch(0.22 0.02 120);
+  --muted-foreground: oklch(0.7 0.04 120);
   --accent: oklch(0.25 0.05 130);
   --accent-foreground: oklch(0.98 0.01 120);
   --destructive: oklch(0.396 0.141 25.723);
   --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.2 0.02 120);
-  --input: oklch(0.2 0.02 120);
+  --border: oklch(0.26 0.02 120);
+  --input: oklch(0.24 0.02 120);
   --ring: oklch(0.65 0.15 140);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -119,6 +119,9 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    transition-property: background-color, border-color, color;
+    transition-duration: 300ms;
+    transition-timing-function: ease;
   }
   body {
     @apply bg-background text-foreground;
@@ -126,4 +129,22 @@
   html {
     @apply font-sans;
   }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(0, -24px);
+  }
+}
+
+.animate-float {
+  animation: float 9s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float 9s ease-in-out infinite;
+  animation-delay: 3s;
 }

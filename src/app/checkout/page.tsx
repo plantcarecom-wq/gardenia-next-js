@@ -175,13 +175,22 @@ export default function CheckoutPage() {
   const belowMinOrder = minOrderAmount > 0 && subTotal < minOrderAmount;
 
   return (
-    <div className="bg-gray-50 dark:bg-background min-h-screen py-12">
-      <div className="container mx-auto px-4 max-w-5xl">
-        <Link href="/cart" className="inline-flex items-center text-sm text-muted-foreground hover:text-emerald-600 mb-8 transition-colors">
-          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Cart
-        </Link>
+    <div className="bg-gray-50/50 dark:bg-background min-h-screen pb-20">
+      <div className="bg-background border-b border-border py-12 md:py-20 flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-black dark:bg-[#0a0a0a] z-0">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20" />
+        </div>
+        <div className="container px-4 md:px-6 relative z-10 flex flex-col items-center">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4 text-white bg-clip-text text-transparent bg-gradient-to-br from-white to-white/70">
+            Secure Checkout
+          </h1>
+          <Link href="/cart" className="inline-flex items-center text-sm text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+            <ChevronLeft className="w-4 h-4 mr-1" /> Return to Cart
+          </Link>
+        </div>
+      </div>
 
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-foreground mb-8">Secure Checkout</h1>
+      <div className="container mx-auto px-4 max-w-5xl py-12">
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Left Column - Details */}
@@ -275,7 +284,7 @@ export default function CheckoutPage() {
 
           {/* Right Column - Summary */}
           <div className="lg:col-span-5">
-            <Card className="border-gray-100 dark:border-border shadow-sm sticky top-8">
+            <Card className="border-gray-100 dark:border-border shadow-sm sticky top-24">
               <CardContent className="p-6">
                 <h3 className="text-lg font-bold mb-6">Order Summary</h3>
                 

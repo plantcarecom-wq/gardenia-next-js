@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Leaf, Filter, ChevronRight } from 'lucide-react';
+import { Leaf, Filter, ChevronRight, MapPin } from 'lucide-react';
 import { connectDB } from '@/shared/lib/db';
 import { ProductModel } from '@/modules/catalog/infrastructure/product.model';
 import { CategoryModel } from '@/modules/catalog/infrastructure/category.model';
@@ -9,6 +9,9 @@ import { resolveProductImages } from '@/shared/lib/resolve-product-images';
 import { formatPrice } from '@/shared/lib/format-price';
 import { getSiteCurrency } from '@/shared/lib/get-site-currency';
 import { ProductFilters } from './product-filters';
+import { ProductCard } from '@/components/ui/product-card';
+import { Container } from '@/shared/components/Container';
+import { LocationAutoDetect } from '@/components/location/location-auto-detect';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +21,8 @@ const SORT_MAP: Record<string, Record<string, 1 | -1>> = {
   rating: { ratingAverage: -1 },
   newest: { createdAt: -1 },
 };
+
+import { cookies } from 'next/headers';
 
 async function getProducts(searchParams: { [key: string]: string | string[] | undefined }) {
   await connectDB();
@@ -36,8 +41,67 @@ async function getProducts(searchParams: { [key: string]: string | string[] | un
     if (maxPrice !== undefined && !Number.isNaN(maxPrice)) filter.price.$lte = maxPrice;
   }
 
-  const products = await ProductModel.find(filter).sort(SORT_MAP[sort] || SORT_MAP.newest).lean();
-  return await resolveProductImages(JSON.parse(JSON.stringify(products)));
+  const cookieStore = await cookies();
+  const userLocationCookie = cookieStore.get('user-location')?.value;
+  const userRegionCookie = cookieStore.get('user-region')?.value;
+
+  if (userLocationCookie) {
+    try {
+      const loc = JSON.parse(userLocationCookie);
+      if (loc.lat && loc.lng) {
+        filter.location = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [loc.lng, loc.lat]
+            },
+            $maxDistance: 50000 // 50km radius
+          }
+        };
+      }
+    } catch (e) {}
+  } else if (userRegionCookie) {
+    filter.region = userRegionCookie;
+  }
+
+  // $near sorts by distance automatically, so skip the manual sort while it's
+  // active. $near is also a hard filter — it excludes any product with no
+  // `location` set at all, which most of the catalog currently has. Rather
+  // than showing "No products found" whenever nothing happens to be within
+  // range, fall back to the unfiltered (or region-filtered) result set so
+  // "near me" is a preference, not a wall.
+  let locationApplied = false;
+
+  if (filter.location) {
+    const nearby = await ProductModel.find(filter).lean();
+    if (nearby.length > 0) {
+      locationApplied = true;
+      return {
+        products: await resolveProductImages(JSON.parse(JSON.stringify(nearby))),
+        locationApplied,
+      };
+    }
+    delete filter.location;
+  }
+
+  let productsQuery = ProductModel.find(filter).sort(SORT_MAP[sort] || SORT_MAP.newest);
+  const products = await productsQuery.lean();
+
+  // A region filter can just as easily match nothing (typo'd/unset region on
+  // the catalog) — same fallback logic applies.
+  if (filter.region && products.length === 0) {
+    delete filter.region;
+    const fallback = await ProductModel.find(filter).sort(SORT_MAP[sort] || SORT_MAP.newest).lean();
+    return {
+      products: await resolveProductImages(JSON.parse(JSON.stringify(fallback))),
+      locationApplied: false,
+    };
+  }
+
+  return {
+    products: await resolveProductImages(JSON.parse(JSON.stringify(products))),
+    locationApplied: locationApplied || Boolean(filter.region),
+  };
 }
 
 async function getCategories() {
@@ -50,20 +114,25 @@ type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const products = await getProducts(params);
+  const { products, locationApplied } = await getProducts(params);
   const categories = await getCategories();
   const currency = await getSiteCurrency();
-  
+  const activeCategoryId = typeof params.categoryId === 'string' ? params.categoryId : undefined;
+
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-background pb-20">
-      <div className="bg-emerald-900 text-white py-12 md:py-16">
-        <div className="container px-4 md:px-6">
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">Our Catalog</h1>
-          <p className="text-emerald-100 max-w-2xl text-lg">Browse our extensive collection of premium plants, pots, and accessories to bring your space to life.</p>
+      <LocationAutoDetect />
+      <div className="bg-background border-b border-border py-16 md:py-24 flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-black dark:bg-[#0a0a0a] z-0">
+          <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-20" />
         </div>
+        <Container size="wide" className="relative z-10 flex flex-col items-center">
+          <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-6 text-white bg-clip-text text-transparent bg-gradient-to-br from-white to-white/70">Our Catalog</h1>
+          <p className="text-gray-400 max-w-2xl text-lg md:text-xl">Browse our extensive collection of premium plants, pots, and accessories to bring your space to life.</p>
+        </Container>
       </div>
-      
-      <div className="container px-4 md:px-6 py-8">
+
+      <Container size="wide" className="py-8">
         <div className="flex flex-col md:flex-row gap-8">
           {/* Sidebar */}
           <aside className="w-full md:w-64 shrink-0">
@@ -73,11 +142,26 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
                   <Filter className="w-4 h-4 mr-2" /> Categories
                 </h3>
                 <div className="space-y-2">
-                  <Link href="/products" className="block text-sm hover:text-emerald-600 transition-colors">
+                  <Link
+                    href="/products"
+                    className={`block text-sm transition-colors ${
+                      !activeCategoryId
+                        ? 'font-semibold text-emerald-600'
+                        : 'text-muted-foreground hover:text-emerald-600'
+                    }`}
+                  >
                     All Products
                   </Link>
                   {categories.map((c: any) => (
-                    <Link key={c._id} href={`/products?categoryId=${c._id}`} className="block text-sm text-muted-foreground hover:text-emerald-600 transition-colors">
+                    <Link
+                      key={c._id}
+                      href={`/products?categoryId=${c._id}`}
+                      className={`block text-sm transition-colors ${
+                        activeCategoryId === c._id
+                          ? 'font-semibold text-emerald-600'
+                          : 'text-muted-foreground hover:text-emerald-600'
+                      }`}
+                    >
                       {c.name}
                     </Link>
                   ))}
@@ -89,8 +173,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
           {/* Main Content */}
           <main className="flex-1">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-              <div className="text-sm text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{products.length}</span> products
+              <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                <span>
+                  Showing <span className="font-semibold text-foreground">{products.length}</span> products
+                </span>
+                {locationApplied && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full">
+                    <MapPin className="w-3 h-3" /> Near you
+                  </span>
+                )}
               </div>
               <ProductFilters
                 q={typeof params.q === 'string' ? params.q : undefined}
@@ -113,41 +204,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {products.map((product: any) => (
-                  <Link key={product._id} href={`/products/${product.slug}`}>
-                    <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-300 group border-gray-100 dark:border-border bg-white dark:bg-card">
-                      <div className="aspect-[4/5] bg-gray-100 dark:bg-muted relative overflow-hidden">
-                        {product.images && product.images.length > 0 ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-600">
-                            <Leaf className="h-12 w-12 opacity-20" />
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="p-5">
-                        <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-emerald-600 transition-colors">
-                          {product.name}
-                        </h3>
-                        <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{product.description || 'Premium plant selection.'}</p>
-                        <div className="flex items-center justify-between mt-auto">
-                          <span className="font-bold text-lg">{formatPrice(product.price, currency)}</span>
-                          <div className="text-sm font-medium text-emerald-600 flex items-center">
-                            View details <ChevronRight className="w-4 h-4 ml-1" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <ProductCard key={product._id} product={product} currency={currency} />
                 ))}
               </div>
             )}
           </main>
         </div>
-      </div>
+      </Container>
     </div>
   );
 }
