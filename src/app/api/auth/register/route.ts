@@ -50,12 +50,20 @@ export async function POST(req: NextRequest) {
       emailVerifyTokenExpiry,
     });
 
-    await sendEmail({
-      to: email,
-      subject: 'Verify your email',
-      html: `<p>Hi ${name},</p><p>Welcome! Please verify your email address to finish setting up your account:</p><p><a href="${env.APP_URL}/verify-email?token=${emailVerifyToken}">Verify email</a></p><p>This link expires in 24 hours.</p>`,
-      text: `Verify your email: ${env.APP_URL}/verify-email?token=${emailVerifyToken} (expires in 24 hours)`,
-    });
+    // The account already exists at this point — a mailer failure must not
+    // 500 the request, since the user can't "retry" registration (they'd
+    // just get a 409 email-in-use) and would be stuck with an unverified
+    // account and no way to receive the verification email.
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Verify your email',
+        html: `<p>Hi ${name},</p><p>Welcome! Please verify your email address to finish setting up your account:</p><p><a href="${env.APP_URL}/verify-email?token=${emailVerifyToken}">Verify email</a></p><p>This link expires in 24 hours.</p>`,
+        text: `Verify your email: ${env.APP_URL}/verify-email?token=${emailVerifyToken} (expires in 24 hours)`,
+      });
+    } catch (mailError) {
+      console.error('Failed to send verification email:', mailError);
+    }
 
     // In a full implementation, we'd also create a GardenerProfile if role === GARDENER here
 

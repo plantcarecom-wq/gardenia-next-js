@@ -6,13 +6,10 @@ const providers: Record<string, PaymentProvider> = {
 };
 
 /**
- * Returns the PaymentProvider for the given key.
- * Throws if the key is not recognized.
+ * Returns the PaymentProvider for the given key, or undefined if the key
+ * isn't recognized — callers are expected to turn that into a clean 4xx
+ * rather than have an unknown method surface as an uncaught exception.
  */
-export function getPaymentProvider(key: string): PaymentProvider {
-  const provider = providers[key];
-  if (!provider) {
-    throw new Error(`Unknown payment provider: "${key}". Available: ${Object.keys(providers).join(', ')}`);
-  }
-  return provider;
+export function getPaymentProvider(key: string): PaymentProvider | undefined {
+  return providers[key];
 }

@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 const statusSchema = z.object({
   status: z.enum(['ACCEPTED', 'REJECTED', 'IN_PROGRESS', 'COMPLETED']),
-  quotedPrice: z.number().optional(), // For ACCEPTED
+  quotedPrice: z.number().min(0).optional(), // For ACCEPTED
   note: z.string().optional(),
 });
 
@@ -62,9 +62,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
         actualNewStatus = 'PENDING_ASSIGNMENT';
         request.assignedGardenerId = undefined;
         request.assignedAt = undefined;
-    } else {
-        request.status = newStatus;
     }
+
+    request.status = actualNewStatus;
 
     if (newStatus === 'ACCEPTED' && parsed.data.quotedPrice !== undefined) {
         request.quotedPrice = parsed.data.quotedPrice;

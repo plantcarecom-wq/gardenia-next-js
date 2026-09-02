@@ -40,12 +40,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: 'Order not found' }, { status: 404 });
     }
 
+    const previousStatus = order.status;
+
     // Stock was deducted at checkout and is never put back automatically, so
     // restore it here exactly once when an order enters a stock-restoring
     // status. Guarded by a persistent `stockRestored` flag rather than the
     // current status, so an admin flipping status back and forth (e.g.
     // cancelled -> confirmed -> cancelled again) can't double-restore stock.
     const willRestore = STOCK_RESTORING_STATUSES.has(parsed.data.status) && !order.stockRestored;
+    // The mirror image: the order previously had its stock restored (it was
+    // cancelled/refunded) and is now being moved back to an active status —
+    // those units must be re-deducted, or they're sellable twice.
+    const willReDeduct = !STOCK_RESTORING_STATUSES.has(parsed.data.status) && order.stockRestored;
 
     order.status = parsed.data.status;
     order.statusHistory.push({
@@ -84,19 +90,57 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       } finally {
         await dbSession.endSession();
       }
+    } else if (willReDeduct) {
+      const dbSession = await mongoose.startSession();
+      try {
+        await dbSession.withTransaction(async () => {
+          for (const item of order.items) {
+            const product = await ProductModel.findOneAndUpdate(
+              { _id: item.productId, stockQty: { $gte: item.qty } },
+              { $inc: { stockQty: -item.qty } },
+              { session: dbSession, new: true }
+            );
+            if (!product) {
+              throw new Error(`Cannot reactivate order: insufficient stock to re-reserve "${item.name}"`);
+            }
+          }
+          order.stockRestored = false;
+          // Mirrors the decrement above: usageCount was only ever
+          // decremented when the order was cancelled (refunded orders never
+          // touched it), so only undo that specific case, or a
+          // cancelled->reactivated->cancelled->reactivated cycle would
+          // drift the coupon's usage count.
+          if (previousStatus === 'cancelled' && order.discountCode) {
+            await CouponModel.updateOne(
+              { code: order.discountCode },
+              { $inc: { usageCount: 1 } },
+              { session: dbSession }
+            );
+          }
+          await order.save({ session: dbSession });
+        });
+      } finally {
+        await dbSession.endSession();
+      }
     } else {
       await order.save();
     }
 
-    // Emit notification to the customer
-    await NotificationService.notify({
-      userId: order.customerId.toString(),
-      type: 'order_status',
-      title: `Order ${order.orderNumber} Updated`,
-      body: `Your order status has been changed to "${parsed.data.status}".`,
-      referenceType: 'order',
-      referenceId: order._id.toString(),
-    });
+    // Emit notification to the customer. The status change is already
+    // committed at this point, so a notify failure must not surface as an
+    // error to the admin (they'd think the status update failed).
+    try {
+      await NotificationService.notify({
+        userId: order.customerId.toString(),
+        type: 'order_status',
+        title: `Order ${order.orderNumber} Updated`,
+        body: `Your order status has been changed to "${parsed.data.status}".`,
+        referenceType: 'order',
+        referenceId: order._id.toString(),
+      });
+    } catch (notifyError) {
+      console.error('Failed to send order-status notification:', notifyError);
+    }
 
     return NextResponse.json({ success: true, data: order });
   } catch (error: unknown) {
