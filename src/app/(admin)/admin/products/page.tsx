@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useFormatPrice } from '@/shared/components/CurrencyProvider';
 import { useStore } from '@/shared/store';
 import { ImageUploader } from '@/components/media/image-uploader';
+import { LocationPicker, type PickedLocation } from '@/components/location/location-picker';
 
 type Product = {
   _id: string;
@@ -43,7 +44,8 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  
+  const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -56,11 +58,22 @@ export default function ProductsPage() {
     isActive: true,
     region: '',
     city: '',
-    latitude: '',
-    longitude: '',
+    latitude: '' as number | '',
+    longitude: '' as number | '',
   });
-  
 
+  const handleLocationPicked = (loc: PickedLocation) => {
+    setFormData((prev) => ({
+      ...prev,
+      latitude: loc.lat,
+      longitude: loc.lng,
+      // A picked location is authoritative for the address text too — it's
+      // still editable afterward (e.g. to add a unit/floor), just never
+      // disconnected from where the pin actually is.
+      city: loc.city || prev.city,
+      region: loc.region || prev.region,
+    }));
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -105,8 +118,8 @@ export default function ProductsPage() {
       isActive: p.isActive,
       region: p.region || '',
       city: p.city || '',
-      latitude: p.location ? String(p.location.coordinates[1]) : '',
-      longitude: p.location ? String(p.location.coordinates[0]) : '',
+      latitude: p.location ? p.location.coordinates[1] : '',
+      longitude: p.location ? p.location.coordinates[0] : '',
     });
     setIsDialogOpen(true);
   };
@@ -129,6 +142,7 @@ export default function ProductsPage() {
     const url = editingProduct ? `/api/v1/products/${editingProduct._id}` : '/api/v1/products';
     const method = editingProduct ? 'PUT' : 'POST';
 
+    setSubmitting(true);
     try {
       const res = await fetch(url, {
         method,
@@ -145,19 +159,27 @@ export default function ProductsPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not save product', body: 'A network error occurred.', variant: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const toggleActive = async (id: string, current: boolean) => {
     try {
-      await fetch(`/api/v1/products/${id}`, {
+      const res = await fetch(`/api/v1/products/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
       });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update product status', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
       fetchData();
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update product status', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
@@ -329,31 +351,14 @@ export default function ProductsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="latitude">Latitude</Label>
-                  <Input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    placeholder="e.g. 31.5204"
-                    value={formData.latitude}
-                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="longitude">Longitude</Label>
-                  <Input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    placeholder="e.g. 74.3587"
-                    value={formData.longitude}
-                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label>Location</Label>
+                <LocationPicker
+                  key={editingProduct?._id || 'new'}
+                  value={formData.latitude !== '' && formData.longitude !== '' ? { lat: formData.latitude, lng: formData.longitude } : null}
+                  onChange={handleLocationPicked}
+                />
               </div>
-              <p className="text-xs text-muted-foreground -mt-2">Used to prioritize this product for nearby customers on the storefront ("near me" browsing).</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="price">Price</Label>
@@ -390,7 +395,7 @@ export default function ProductsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editingProduct ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : editingProduct ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

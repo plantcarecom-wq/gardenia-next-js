@@ -6,19 +6,40 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, Package, Users, Activity, Loader2, AlertTriangle, ChevronRight, Star, UserCheck, Handshake } from 'lucide-react';
 import { formatPrice } from '@/shared/lib/format-price';
 
+interface AdminMetrics {
+  orderCounts?: Record<string, number>;
+  totalRevenue?: number;
+  revenueCurrency?: string;
+  totalUsers?: number;
+  tasks?: {
+    lowStockCount?: number;
+    recentReviewsCount?: number;
+  };
+  services?: {
+    pendingGardeners?: number;
+    openRequests?: number;
+  };
+}
+
 export default function AdminDashboardPage() {
-  const [metrics, setMetrics] = useState<any>(null);
+  const [metrics, setMetrics] = useState<AdminMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     fetch('/api/v1/admin/metrics')
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data.success) {
           setMetrics(data.data);
+        } else {
+          setLoadError(true);
         }
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('Failed to load admin metrics:', err);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -30,8 +51,14 @@ export default function AdminDashboardPage() {
     );
   }
 
-  if (!metrics) {
-    return <div>Failed to load metrics</div>;
+  if (loadError || !metrics) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-2 text-center">
+        <AlertTriangle className="w-8 h-8 text-amber-500" />
+        <p className="font-medium">Could not load dashboard metrics</p>
+        <p className="text-sm text-muted-foreground">Try refreshing the page.</p>
+      </div>
+    );
   }
 
   const totalOrders = Object.values(metrics.orderCounts || {}).reduce((a: any, b: any) => a + b, 0) as number;
@@ -86,19 +113,22 @@ export default function AdminDashboardPage() {
       </div>
 
       {(() => {
-        const tasks = metrics.tasks || {};
+        const lowStockCount = metrics.tasks?.lowStockCount || 0;
+        const recentReviewsCount = metrics.tasks?.recentReviewsCount || 0;
+        const pendingGardeners = metrics.services?.pendingGardeners || 0;
+        const openRequests = metrics.services?.openRequests || 0;
         const items: { key: string; icon: React.ReactNode; label: string; count: number; href: string }[] = [];
-        if (tasks.lowStockCount > 0) {
-          items.push({ key: 'stock', icon: <Package className="h-4 w-4" />, label: `${tasks.lowStockCount} product${tasks.lowStockCount === 1 ? '' : 's'} low on stock`, count: tasks.lowStockCount, href: '/admin/products' });
+        if (lowStockCount > 0) {
+          items.push({ key: 'stock', icon: <Package className="h-4 w-4" />, label: `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} low on stock`, count: lowStockCount, href: '/admin/products' });
         }
-        if (tasks.recentReviewsCount > 0) {
-          items.push({ key: 'reviews', icon: <Star className="h-4 w-4" />, label: `${tasks.recentReviewsCount} new review${tasks.recentReviewsCount === 1 ? '' : 's'} this week`, count: tasks.recentReviewsCount, href: '/admin/reviews' });
+        if (recentReviewsCount > 0) {
+          items.push({ key: 'reviews', icon: <Star className="h-4 w-4" />, label: `${recentReviewsCount} new review${recentReviewsCount === 1 ? '' : 's'} this week`, count: recentReviewsCount, href: '/admin/reviews' });
         }
-        if (metrics.services?.pendingGardeners > 0) {
-          items.push({ key: 'gardeners', icon: <UserCheck className="h-4 w-4" />, label: `${metrics.services.pendingGardeners} Gardener application${metrics.services.pendingGardeners === 1 ? '' : 's'} awaiting review`, count: metrics.services.pendingGardeners, href: '/admin/gardener-verifications' });
+        if (pendingGardeners > 0) {
+          items.push({ key: 'gardeners', icon: <UserCheck className="h-4 w-4" />, label: `${pendingGardeners} Gardener application${pendingGardeners === 1 ? '' : 's'} awaiting review`, count: pendingGardeners, href: '/admin/gardener-verifications' });
         }
-        if (metrics.services?.openRequests > 0) {
-          items.push({ key: 'requests', icon: <Handshake className="h-4 w-4" />, label: `${metrics.services.openRequests} service request${metrics.services.openRequests === 1 ? '' : 's'} need assignment`, count: metrics.services.openRequests, href: '/admin/service-requests' });
+        if (openRequests > 0) {
+          items.push({ key: 'requests', icon: <Handshake className="h-4 w-4" />, label: `${openRequests} service request${openRequests === 1 ? '' : 's'} need assignment`, count: openRequests, href: '/admin/service-requests' });
         }
 
         if (items.length === 0) return null;

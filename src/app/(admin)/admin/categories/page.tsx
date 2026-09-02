@@ -34,7 +34,8 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  
+  const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     categoryTypeId: '',
@@ -87,6 +88,7 @@ export default function CategoriesPage() {
     const url = editingCategory ? `/api/v1/categories/${editingCategory._id}` : '/api/v1/categories';
     const method = editingCategory ? 'PUT' : 'POST';
 
+    setSubmitting(true);
     try {
       const res = await fetch(url, {
         method,
@@ -102,19 +104,27 @@ export default function CategoriesPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not save category', body: 'A network error occurred.', variant: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const toggleActive = async (id: string, current: boolean) => {
     try {
-      await fetch(`/api/v1/categories/${id}`, {
+      const res = await fetch(`/api/v1/categories/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
       });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update category', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
       fetchData();
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update category', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
@@ -255,7 +265,7 @@ export default function CategoriesPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editingCategory ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : editingCategory ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

@@ -54,6 +54,7 @@ export default function SubscriptionPackagesPage() {
   const [editing, setEditing] = useState<SubscriptionPackage | null>(null);
   const [formData, setFormData] = useState(emptyForm);
   const [actioningId, setActioningId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -106,6 +107,7 @@ export default function SubscriptionPackagesPage() {
       perks: formData.perks.split(',').map((p) => p.trim()).filter(Boolean),
     };
 
+    setSubmitting(true);
     try {
       const res = await fetch(url, {
         method,
@@ -122,19 +124,27 @@ export default function SubscriptionPackagesPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not save package', body: 'A network error occurred.', variant: 'error' });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const toggleActive = async (id: string, current: boolean) => {
     try {
-      await fetch(`/api/v1/subscription-packages/${id}`, {
+      const res = await fetch(`/api/v1/subscription-packages/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
       });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update package', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
       fetchData();
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update package', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
@@ -389,7 +399,7 @@ export default function SubscriptionPackagesPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

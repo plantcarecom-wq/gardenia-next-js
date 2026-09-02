@@ -12,6 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/shared/lib/date';
 import { cn } from '@/lib/utils';
+import { useStore } from '@/shared/store';
 
 type Post = {
   _id: string;
@@ -36,6 +37,7 @@ function slugify(title: string) {
 }
 
 export default function BlogAdminPage() {
+  const { pushToast } = useStore();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -43,6 +45,7 @@ export default function BlogAdminPage() {
   const [formData, setFormData] = useState(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -50,6 +53,10 @@ export default function BlogAdminPage() {
       const res = await fetch('/api/v1/blog?all=true');
       const data = await res.json();
       if (data.success) setPosts(data.data);
+      else pushToast({ title: 'Could not load posts', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+    } catch (err) {
+      console.error('Failed to fetch posts:', err);
+      pushToast({ title: 'Could not load posts', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -83,33 +90,60 @@ export default function BlogAdminPage() {
     const payload = editing
       ? { title: formData.title, excerpt: formData.excerpt, body: formData.body, isPublished: formData.isPublished }
       : formData;
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!data.success) {
-      setError(typeof data.error === 'string' ? data.error : 'Could not save post');
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not save post');
+        return;
+      }
+      setIsDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to save post:', err);
+      setError('A network error occurred.');
+    } finally {
+      setSubmitting(false);
     }
-    setIsDialogOpen(false);
-    fetchData();
   };
 
   const togglePublished = async (p: Post) => {
-    await fetch(`/api/v1/blog/${p._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isPublished: !p.isPublished }),
-    });
-    fetchData();
+    try {
+      const res = await fetch(`/api/v1/blog/${p._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublished: !p.isPublished }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update post', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Failed to toggle post:', err);
+      pushToast({ title: 'Could not update post', body: 'A network error occurred.', variant: 'error' });
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this post?')) return;
-    await fetch(`/api/v1/blog/${id}`, { method: 'DELETE' });
-    fetchData();
+    try {
+      const res = await fetch(`/api/v1/blog/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not delete post', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+        return;
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Failed to delete post:', err);
+      pushToast({ title: 'Could not delete post', body: 'A network error occurred.', variant: 'error' });
+    }
   };
 
   return (
@@ -245,7 +279,7 @@ export default function BlogAdminPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

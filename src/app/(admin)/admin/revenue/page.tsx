@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useFormatPrice, useCurrency } from '@/shared/components/CurrencyProvider';
 import { utcNow, formatMonthYear, monthKey } from '@/shared/lib/date';
+import { useStore } from '@/shared/store';
 
 type Order = {
   _id: string;
@@ -28,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
 export default function AdminRevenuePage() {
   const formatPrice = useFormatPrice();
   const siteCurrency = useCurrency();
+  const { pushToast } = useStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,9 +38,14 @@ export default function AdminRevenuePage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) setOrders(data.data);
+        else pushToast({ title: 'Could not load revenue data', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
       })
-      .catch(console.error)
+      .catch((err) => {
+        console.error('Failed to load orders for revenue page:', err);
+        pushToast({ title: 'Could not load revenue data', body: 'A network error occurred.', variant: 'error' });
+      })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const summary = useMemo(() => {

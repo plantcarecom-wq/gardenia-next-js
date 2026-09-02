@@ -43,13 +43,21 @@ export default function AdminReviewsPage() {
   useEffect(() => { fetchReviews(); }, []);
 
   const toggleHidden = async (r: Review) => {
-    const res = await fetch(`/api/v1/reviews/${r._id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isHidden: !r.isHidden }),
-    });
-    if (res.ok) {
-      setReviews((prev) => prev.map((x) => (x._id === r._id ? { ...x, isHidden: !x.isHidden } : x)));
+    try {
+      const res = await fetch(`/api/v1/reviews/${r._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isHidden: !r.isHidden }),
+      });
+      if (res.ok) {
+        setReviews((prev) => prev.map((x) => (x._id === r._id ? { ...x, isHidden: !x.isHidden } : x)));
+      } else {
+        const data = await res.json();
+        pushToast({ title: 'Could not update review', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to toggle review visibility:', err);
+      pushToast({ title: 'Could not update review', body: 'A network error occurred.', variant: 'error' });
     }
   };
 

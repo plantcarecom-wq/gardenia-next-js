@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { formatDate } from '@/shared/lib/date';
 import { Badge } from '@/components/ui/badge';
 import { useFormatPrice } from '@/shared/components/CurrencyProvider';
+import { useStore } from '@/shared/store';
 
 type Coupon = {
   _id: string;
@@ -46,12 +47,14 @@ const emptyForm = {
 
 export default function CouponsPage() {
   const formatPrice = useFormatPrice();
+  const { pushToast } = useStore();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Coupon | null>(null);
   const [formData, setFormData] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -59,6 +62,10 @@ export default function CouponsPage() {
       const res = await fetch('/api/v1/admin/coupons');
       const data = await res.json();
       if (data.success) setCoupons(data.data);
+      else pushToast({ title: 'Could not load coupons', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+    } catch (err) {
+      console.error('Failed to fetch coupons:', err);
+      pushToast({ title: 'Could not load coupons', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -106,33 +113,60 @@ export default function CouponsPage() {
     };
     const url = editing ? `/api/v1/admin/coupons/${editing._id}` : '/api/v1/admin/coupons';
     const method = editing ? 'PUT' : 'POST';
-    const res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!data.success) {
-      setError(typeof data.error === 'string' ? data.error : 'Could not save coupon');
-      return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setError(typeof data.error === 'string' ? data.error : 'Could not save coupon');
+        return;
+      }
+      setIsDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to save coupon:', err);
+      setError('A network error occurred.');
+    } finally {
+      setSubmitting(false);
     }
-    setIsDialogOpen(false);
-    fetchData();
   };
 
   const toggleActive = async (c: Coupon) => {
-    await fetch(`/api/v1/admin/coupons/${c._id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !c.isActive }),
-    });
-    fetchData();
+    try {
+      const res = await fetch(`/api/v1/admin/coupons/${c._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !c.isActive }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update coupon', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Failed to toggle coupon:', err);
+      pushToast({ title: 'Could not update coupon', body: 'A network error occurred.', variant: 'error' });
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this coupon?')) return;
-    await fetch(`/api/v1/admin/coupons/${id}`, { method: 'DELETE' });
-    fetchData();
+    try {
+      const res = await fetch(`/api/v1/admin/coupons/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not delete coupon', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+        return;
+      }
+      fetchData();
+    } catch (err) {
+      console.error('Failed to delete coupon:', err);
+      pushToast({ title: 'Could not delete coupon', body: 'A network error occurred.', variant: 'error' });
+    }
   };
 
   return (
@@ -341,7 +375,7 @@ export default function CouponsPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">{editing ? 'Save Changes' : 'Create'}</Button>
+              <Button type="submit" disabled={submitting}>{submitting ? 'Saving…' : editing ? 'Save Changes' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

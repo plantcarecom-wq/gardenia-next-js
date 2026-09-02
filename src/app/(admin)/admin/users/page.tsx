@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Users, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { formatDate } from '@/shared/lib/date';
+import { useStore } from '@/shared/store';
 
 type User = {
   _id: string;
@@ -18,6 +20,7 @@ type User = {
 };
 
 export default function UsersPage() {
+  const { pushToast } = useStore();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,8 +30,10 @@ export default function UsersPage() {
       const res = await fetch('/api/v1/admin/users');
       const data = await res.json();
       if (data.success) setUsers(data.data);
+      else pushToast({ title: 'Could not load users', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not load users', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -38,17 +43,29 @@ export default function UsersPage() {
     fetchData();
   }, []);
 
-  const toggleStatus = async (id: string, current: User['status']) => {
+  // Only ever toggles between active <-> suspended. A 'pending' gardener
+  // (awaiting KYC review) is never touched by this switch — that status is
+  // owned by GardenerProfile.verificationStatus via the dedicated Gardener
+  // Verifications screen, not this account-level flag. Conflating the two
+  // let this switch "activate" an account whose application was never
+  // actually reviewed.
+  const toggleStatus = async (id: string, current: 'active' | 'suspended') => {
     const nextStatus = current === 'active' ? 'suspended' : 'active';
     try {
-      await fetch('/api/v1/admin/users', {
+      const res = await fetch('/api/v1/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status: nextStatus }),
       });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update user', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+        return;
+      }
       fetchData();
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update user', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
@@ -108,11 +125,19 @@ export default function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Switch
-                          checked={u.status === 'active'}
-                          onCheckedChange={() => toggleStatus(u._id, u.status)}
-                          className="data-[state=checked]:bg-green-500"
-                        />
+                        {u.status === 'pending' ? (
+                          <Link href="/admin/gardener-verifications" className="inline-block">
+                            <Badge variant="outline" className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-950/30">
+                              Pending verification
+                            </Badge>
+                          </Link>
+                        ) : (
+                          <Switch
+                            checked={u.status === 'active'}
+                            onCheckedChange={() => toggleStatus(u._id, u.status as 'active' | 'suspended')}
+                            className="data-[state=checked]:bg-green-500"
+                          />
+                        )}
                       </TableCell>
                       <TableCell>{formatDate(u.createdAt)}</TableCell>
                     </TableRow>
