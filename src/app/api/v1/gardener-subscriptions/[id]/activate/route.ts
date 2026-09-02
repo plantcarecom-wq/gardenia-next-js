@@ -27,6 +27,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 
+    if (subscription.status !== 'pending') {
+      return NextResponse.json(
+        { success: false, error: `Cannot activate a subscription with status "${subscription.status}"` },
+        { status: 400 }
+      );
+    }
+
     const pkg = await SubscriptionPackageModel.findById(subscription.packageId).lean();
     if (!pkg) {
       return NextResponse.json({ success: false, error: 'Package no longer exists' }, { status: 400 });

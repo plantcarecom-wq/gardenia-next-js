@@ -7,6 +7,7 @@ import { connectDB } from '@/shared/lib/db';
 import { productCreateSchema, toGeoLocation } from '@/modules/catalog/schemas/product.schema';
 import { resolveProductImages } from '@/shared/lib/resolve-product-images';
 import { isValidId } from '@/shared/schemas/id.schema';
+import { escapeRegExp } from '@/shared/lib/escape-regex';
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
 
     if (categoryId) filter.categoryId = categoryId;
     if (q) {
-      filter.name = { $regex: q, $options: 'i' };
+      filter.name = { $regex: escapeRegExp(q), $options: 'i' };
     }
 
     if (minPrice || maxPrice) {
@@ -72,7 +73,16 @@ export async function POST(req: NextRequest) {
 
     const { latitude, longitude, ...productData } = parsed.data;
     const location = toGeoLocation({ latitude, longitude });
-    const newProduct = await ProductModel.create(location ? { ...productData, location } : productData);
+
+    let newProduct;
+    try {
+      newProduct = await ProductModel.create(location ? { ...productData, location } : productData);
+    } catch (createError: unknown) {
+      if ((createError as { code?: number }).code === 11000) {
+        return NextResponse.json({ success: false, error: 'Product slug already exists' }, { status: 409 });
+      }
+      throw createError;
+    }
 
     return NextResponse.json({ success: true, data: newProduct }, { status: 201 });
   } catch (error: unknown) {

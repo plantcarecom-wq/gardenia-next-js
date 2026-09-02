@@ -10,7 +10,7 @@ import { idSchema } from '@/shared/schemas/id.schema';
 
 const updateCartSchema = z.object({
   productId: idSchema,
-  qty: z.number().min(0),
+  qty: z.number().int().min(0),
 });
 
 // `images` isn't a real Product field (it's `imageMediaIds`, resolved via
@@ -28,17 +28,71 @@ async function withResolvedImages(cart: any) {
   return cart;
 }
 
+/**
+ * Merges a guest (cookie-session) cart into a logged-in customer's cart:
+ * shared products have their quantities summed, unique items from either
+ * cart are kept, and the merged result is capped at current stock so a
+ * merge can never leave the cart over-subscribed. The guest cart document
+ * is deleted once its items have been folded in. Returns the resulting
+ * customer cart document (or null if neither cart exists).
+ */
+async function mergeGuestCartIntoCustomer(customerId: string, sessionId: string) {
+  const [customerCart, guestCart] = await Promise.all([
+    CartModel.findOne({ customerId }),
+    CartModel.findOne({ sessionId }),
+  ]);
+
+  if (!guestCart) return customerCart;
+
+  if (!customerCart) {
+    guestCart.customerId = customerId;
+    guestCart.sessionId = undefined;
+    await guestCart.save();
+    return guestCart;
+  }
+
+  for (const guestItem of guestCart.items) {
+    const idx = customerCart.items.findIndex((i: any) => i.productId.toString() === guestItem.productId.toString());
+    if (idx > -1) {
+      customerCart.items[idx].qty += guestItem.qty;
+    } else {
+      customerCart.items.push({
+        productId: guestItem.productId,
+        qty: guestItem.qty,
+        priceSnapshot: guestItem.priceSnapshot,
+      });
+    }
+  }
+
+  const productIds = customerCart.items.map((i: any) => i.productId);
+  const products = await ProductModel.find({ _id: { $in: productIds } }).select('stockQty isActive').lean();
+  const productById = new Map(products.map((p: any) => [String(p._id), p]));
+
+  customerCart.items = customerCart.items.filter((item: any) => {
+    const product = productById.get(String(item.productId));
+    if (!product || !product.isActive) return false;
+    item.qty = Math.min(item.qty, product.stockQty);
+    return item.qty > 0;
+  });
+
+  await customerCart.save();
+  await CartModel.deleteOne({ _id: guestCart._id });
+  return customerCart;
+}
+
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+
+const CLEAR_SESSION_COOKIE = 'cart_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax';
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireRole([Roles.CUSTOMER, Roles.GARDENER]);
     const customerId = auth.authorized ? auth.user?.id : undefined;
-    
+
     const cookieStore = await cookies();
-    let sessionId = cookieStore.get('cart_session')?.value;
-    
+    const sessionId = cookieStore.get('cart_session')?.value;
+
     // If neither customerId nor sessionId is present, the cart is empty by definition.
     if (!customerId && !sessionId) {
       return NextResponse.json({ success: true, data: { items: [] } });
@@ -46,30 +100,37 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    let cart;
+    let cartId: string | undefined;
+    const responseHeaders = new Headers();
+
     if (customerId) {
-      cart = await CartModel.findOne({ customerId }).populate('items.productId', 'name slug imageMediaIds price').lean();
-      
-      // If we have a sessionId as well, we might want to merge it. 
-      // For simplicity, we just fetch the customer's cart if it exists.
-      if (!cart && sessionId) {
-        cart = await CartModel.findOne({ sessionId }).populate('items.productId', 'name slug imageMediaIds price').lean();
-        if (cart) {
-          // Merge to customer
-          await CartModel.updateOne({ _id: cart._id }, { $set: { customerId }, $unset: { sessionId: 1 } });
-        }
+      if (sessionId) {
+        const merged = await mergeGuestCartIntoCustomer(customerId, sessionId);
+        cartId = merged?._id;
+        // The guest cart has now been merged/consumed — clear the cookie so
+        // future requests don't keep looking for a cart that no longer exists.
+        responseHeaders.append('Set-Cookie', CLEAR_SESSION_COOKIE);
+      } else {
+        const existing = await CartModel.findOne({ customerId }).select('_id').lean();
+        cartId = existing?._id;
       }
     } else if (sessionId) {
-      cart = await CartModel.findOne({ sessionId }).populate('items.productId', 'name slug imageMediaIds price').lean();
+      const existing = await CartModel.findOne({ sessionId }).select('_id').lean();
+      cartId = existing?._id;
     }
 
-    if (!cart) {
-      return NextResponse.json({ success: true, data: { items: [] } });
+    if (!cartId) {
+      return NextResponse.json({ success: true, data: { items: [] } }, { headers: responseHeaders });
     }
-    
+
+    let cart = await CartModel.findById(cartId).populate('items.productId', 'name slug imageMediaIds price').lean();
+    if (!cart) {
+      return NextResponse.json({ success: true, data: { items: [] } }, { headers: responseHeaders });
+    }
+
     cart = await withResolvedImages(JSON.parse(JSON.stringify(cart)));
 
-    return NextResponse.json({ success: true, data: cart });
+    return NextResponse.json({ success: true, data: cart }, { headers: responseHeaders });
   } catch (error: unknown) {
     console.error(error);
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
@@ -80,34 +141,33 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await requireRole([Roles.CUSTOMER, Roles.GARDENER]);
     const customerId = auth.authorized ? auth.user?.id : undefined;
-    
+
     const cookieStore = await cookies();
     let sessionId = cookieStore.get('cart_session')?.value;
 
     const body = await req.json();
     const parsed = updateCartSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: parsed.error.format() }, { status: 400 });
     }
 
     await connectDB();
-    
+
+    let responseHeaders = new Headers();
     let cart;
     if (customerId) {
-      cart = await CartModel.findOne({ customerId });
-      if (!cart && sessionId) {
-         cart = await CartModel.findOne({ sessionId });
-         if (cart) {
-            cart.customerId = customerId;
-            cart.sessionId = undefined;
-         }
+      if (sessionId) {
+        cart = await mergeGuestCartIntoCustomer(customerId, sessionId);
+        responseHeaders.append('Set-Cookie', CLEAR_SESSION_COOKIE);
+        sessionId = undefined;
+      } else {
+        cart = await CartModel.findOne({ customerId });
       }
     } else if (sessionId) {
       cart = await CartModel.findOne({ sessionId });
     }
 
-    let responseHeaders = new Headers();
     if (!cart) {
       if (!customerId && !sessionId) {
         sessionId = crypto.randomUUID();
@@ -153,4 +213,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }
-

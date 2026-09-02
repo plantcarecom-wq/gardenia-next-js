@@ -28,9 +28,17 @@ class NotificationServiceClass {
    * Send a notification to a user through all registered channels.
    */
   async notify(payload: NotificationPayload): Promise<void> {
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       this.channels.map((channel) => channel.deliver(payload))
     );
+    results.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        console.error(
+          `NotificationService: ${this.channels[i].constructor.name} failed to deliver "${payload.type}" to user ${payload.userId}:`,
+          result.reason
+        );
+      }
+    });
   }
 }
 

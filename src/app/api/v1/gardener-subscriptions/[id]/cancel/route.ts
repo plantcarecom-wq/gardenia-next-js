@@ -21,9 +21,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     await connectDB();
 
-    const updated = await GardenerSubscriptionModel.findByIdAndUpdate(id, { status: 'cancelled' }, { new: true });
+    // Only a pending/active subscription can be cancelled — this also
+    // doubles as an atomic guard against double-cancel races.
+    const updated = await GardenerSubscriptionModel.findOneAndUpdate(
+      { _id: id, status: { $in: ['pending', 'active'] } },
+      { status: 'cancelled' },
+      { new: true }
+    );
     if (!updated) {
-      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+      const existing = await GardenerSubscriptionModel.findById(id).select('status').lean();
+      if (!existing) {
+        return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+      }
+      return NextResponse.json(
+        { success: false, error: `Cannot cancel a subscription with status "${existing.status}"` },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ success: true, data: updated });

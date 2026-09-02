@@ -87,7 +87,10 @@ export async function POST(req: NextRequest) {
     let profile = await GardenerProfileModel.findOne({ userId: auth.user?.id });
 
     if (profile) {
-      // Update existing profile (can only update if not already approved, or re-submitting)
+      // Any resubmission — including from an already-approved gardener —
+      // must go back through admin review before it counts as approved
+      // again, otherwise an approved gardener could swap their KYC
+      // documents (e.g. CNIC) without ever being re-verified.
       Object.assign(profile, parsed.data);
       profile.kycRegion = kycRegion;
       // Clear out fields specific to the other region so a resubmission
@@ -101,7 +104,7 @@ export async function POST(req: NextRequest) {
         profile.cnicFrontMediaId = undefined;
         profile.cnicBackMediaId = undefined;
       }
-      if (profile.verificationStatus === 'rejected') {
+      if (profile.verificationStatus === 'rejected' || profile.verificationStatus === 'approved') {
         profile.verificationStatus = 'pending';
       }
       await profile.save();
