@@ -44,14 +44,14 @@ export const createCartSlice: StateCreator<CartSlice> = (set, get) => ({
     }
   },
   updateQty: async (productId: string, qty: number) => {
+    // Captured before the optimistic update below. Item objects are
+    // replaced (not mutated in place), so this array keeps referencing the
+    // pre-update objects and is a genuine snapshot to revert to.
+    const prevItems = get().items;
     try {
-      // Optimistic update
-      const prevItems = [...get().items];
-      set((state) => {
-        const item = state.items.find((i) => i.productId._id === productId);
-        if (item) item.qty = qty;
-        return { items: [...state.items] };
-      });
+      set((state) => ({
+        items: state.items.map((i) => (i.productId._id === productId ? { ...i, qty } : i)),
+      }));
 
       const res = await fetch('/api/v1/cart', {
         method: 'POST',
@@ -71,7 +71,7 @@ export const createCartSlice: StateCreator<CartSlice> = (set, get) => ({
       return { success: true };
     } catch (err) {
       console.error('Failed to update cart', err);
-      await get().fetchCart();
+      set({ items: prevItems });
       return { success: false, error: 'An unexpected error occurred' };
     }
   },

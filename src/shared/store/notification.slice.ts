@@ -21,6 +21,7 @@ export interface NotificationSlice {
   startSSE: () => void;
   stopSSE: () => void;
   _eventSource: EventSource | null;
+  _reconnectTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export const createNotificationSlice: StateCreator<
@@ -33,6 +34,7 @@ export const createNotificationSlice: StateCreator<
   unreadCount: 0,
   notifLoading: false,
   _eventSource: null,
+  _reconnectTimer: null,
 
   fetchNotifications: async () => {
     set({ notifLoading: true });
@@ -82,6 +84,9 @@ export const createNotificationSlice: StateCreator<
     const existing = get()._eventSource;
     if (existing) existing.close();
 
+    const pendingReconnect = get()._reconnectTimer;
+    if (pendingReconnect) clearTimeout(pendingReconnect);
+
     try {
       const es = new EventSource('/api/v1/notifications/stream');
       
@@ -106,10 +111,14 @@ export const createNotificationSlice: StateCreator<
 
       es.onerror = () => {
         es.close();
-        // Auto-reconnect after 5 seconds
-        setTimeout(() => {
+        set({ _eventSource: null });
+        // Auto-reconnect after 5 seconds — tracked so stopSSE() (e.g. on
+        // logout) can cancel it; otherwise a stale reconnect can still fire
+        // after stop and reopen a stream that immediately 401-loops.
+        const timer = setTimeout(() => {
           get().startSSE();
         }, 5000);
+        set({ _reconnectTimer: timer });
       };
 
       set({ _eventSource: es });
@@ -124,7 +133,9 @@ export const createNotificationSlice: StateCreator<
     const es = get()._eventSource;
     if (es) {
       es.close();
-      set({ _eventSource: null });
     }
+    const timer = get()._reconnectTimer;
+    if (timer) clearTimeout(timer);
+    set({ _eventSource: null, _reconnectTimer: null });
   },
 });
