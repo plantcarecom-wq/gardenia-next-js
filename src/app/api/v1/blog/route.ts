@@ -60,11 +60,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'A post with this slug already exists' }, { status: 409 });
     }
 
-    const post = await PostModel.create({
-      ...parsed.data,
-      authorId: auth.user?.id,
-      publishedAt: parsed.data.isPublished ? new Date() : undefined,
-    });
+    let post;
+    try {
+      post = await PostModel.create({
+        ...parsed.data,
+        authorId: auth.user?.id,
+        publishedAt: parsed.data.isPublished ? new Date() : undefined,
+      });
+    } catch (createError: unknown) {
+      if ((createError as { code?: number }).code === 11000) {
+        return NextResponse.json({ success: false, error: 'A post with this slug already exists' }, { status: 409 });
+      }
+      throw createError;
+    }
 
     return NextResponse.json({ success: true, data: post }, { status: 201 });
   } catch (error: unknown) {

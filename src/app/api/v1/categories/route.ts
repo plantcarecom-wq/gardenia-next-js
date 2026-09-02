@@ -56,10 +56,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Category already exists' }, { status: 409 });
     }
 
-    const newCategory = await CategoryModel.create({
-      ...parsed.data,
-      categoryCode,
-    });
+    let newCategory;
+    try {
+      newCategory = await CategoryModel.create({
+        ...parsed.data,
+        categoryCode,
+      });
+    } catch (createError: unknown) {
+      if ((createError as { code?: number }).code === 11000) {
+        return NextResponse.json({ success: false, error: 'Category already exists' }, { status: 409 });
+      }
+      throw createError;
+    }
 
     return NextResponse.json({ success: true, data: newCategory }, { status: 201 });
   } catch (error: unknown) {
