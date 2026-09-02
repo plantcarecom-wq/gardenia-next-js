@@ -201,14 +201,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (order) {
-      await NotificationService.notify({
-        userId: String(customerId),
-        type: 'order_placed',
-        title: `Order ${(order as { orderNumber: string }).orderNumber} confirmed`,
-        body: `Thanks for your order! We've received it and will keep you posted as it's processed.`,
-        referenceType: 'order',
-        referenceId: String((order as { _id: unknown })._id),
-      });
+      // The order is already committed at this point — a notify failure
+      // must never surface as a checkout error (the customer would think
+      // the order failed and retry/re-order something that already went through).
+      try {
+        await NotificationService.notify({
+          userId: String(customerId),
+          type: 'order_placed',
+          title: `Order ${(order as { orderNumber: string }).orderNumber} confirmed`,
+          body: `Thanks for your order! We've received it and will keep you posted as it's processed.`,
+          referenceType: 'order',
+          referenceId: String((order as { _id: unknown })._id),
+        });
+      } catch (notifyError) {
+        console.error('Failed to send order-placed notification:', notifyError);
+      }
     }
 
     return NextResponse.json({ success: true, data: order }, { status: 201 });

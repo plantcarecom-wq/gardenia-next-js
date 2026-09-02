@@ -38,11 +38,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'You already have a pending or active subscription' }, { status: 409 });
     }
 
-    const subscription = await GardenerSubscriptionModel.create({
-      gardenerId: auth.user?.id,
-      packageId: pkg._id,
-      status: 'pending',
-    });
+    let subscription;
+    try {
+      subscription = await GardenerSubscriptionModel.create({
+        gardenerId: auth.user?.id,
+        packageId: pkg._id,
+        status: 'pending',
+      });
+    } catch (createError: unknown) {
+      if ((createError as { code?: number }).code === 11000) {
+        return NextResponse.json({ success: false, error: 'You already have a pending or active subscription' }, { status: 409 });
+      }
+      throw createError;
+    }
 
     return NextResponse.json({ success: true, data: subscription }, { status: 201 });
   } catch (error: unknown) {

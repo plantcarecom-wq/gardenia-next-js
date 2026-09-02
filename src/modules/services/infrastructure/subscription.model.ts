@@ -57,4 +57,14 @@ const gardenerSubscriptionSchema = new Schema<IGardenerSubscription>(
   { timestamps: true }
 );
 
+// Guards against a double-submit/double-click race on POST /gardener-subscriptions/request
+// creating two concurrent 'pending' subscriptions for the same gardener — the
+// application-level check in that route is read-then-write and not itself
+// race-safe. (Doesn't cover 'active', which is only ever reached by an admin
+// activating a single existing 'pending' doc, not by a concurrent create.)
+gardenerSubscriptionSchema.index(
+  { gardenerId: 1 },
+  { unique: true, partialFilterExpression: { status: 'pending' } }
+);
+
 export const GardenerSubscriptionModel = mongoose.models.GardenerSubscription || mongoose.model<IGardenerSubscription>('GardenerSubscription', gardenerSubscriptionSchema);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/shared/lib/db';
 import { ServiceOfferingModel } from '@/modules/services/infrastructure/service-offering.model';
+import { GardenerProfileModel } from '@/modules/services/infrastructure/gardener-profile.model';
 import { CategoryModel } from '@/modules/catalog/infrastructure/category.model';
 // Registers the 'CategoryType' Mongoose model for the
 // `.populate('categoryTypeId', ...)` call below — see service-requests/route.ts
@@ -60,6 +61,14 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
+
+    // A gardener whose KYC/verification hasn't been approved yet must not be
+    // able to publish live offerings — the whole point of the admin
+    // verification screen is to gate this before customers can reach them.
+    const profile = await GardenerProfileModel.findOne({ userId: auth.user?.id }).select('verificationStatus').lean();
+    if (!profile || profile.verificationStatus !== 'approved') {
+      return NextResponse.json({ success: false, error: 'Your gardener profile must be approved before you can create offerings' }, { status: 403 });
+    }
 
     // Verify category is domain=SERVICE. `domain` lives on CategoryType, not
     // Category itself, so it must be resolved via the populated categoryTypeId.

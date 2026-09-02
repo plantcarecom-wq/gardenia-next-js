@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/shared/lib/db';
 import { ServiceOfferingModel } from '@/modules/services/infrastructure/service-offering.model';
+import { GardenerProfileModel } from '@/modules/services/infrastructure/gardener-profile.model';
 import { requireServicesModule } from '@/shared/lib/services-flag';
 import { isValidId } from '@/shared/schemas/id.schema';
 
@@ -20,6 +21,12 @@ export async function GET(req: NextRequest) {
     if (categoryId) {
         query.categoryId = categoryId;
     }
+
+    // Defense in depth: only ever surface offerings from gardeners who are
+    // currently approved, even if one somehow slipped through as isActive
+    // (e.g. was approved, went live, then got rejected on re-review).
+    const approvedGardenerIds = await GardenerProfileModel.find({ verificationStatus: 'approved' }).distinct('userId');
+    query.gardenerId = { $in: approvedGardenerIds };
 
     const offerings = await ServiceOfferingModel.find(query)
       .populate('categoryId', 'name slug')
