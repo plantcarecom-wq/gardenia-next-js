@@ -50,8 +50,10 @@ export default function GardenerRequestsPage() {
       const res = await fetch(`/api/v1/service-requests/gardener?status=${status}`);
       const data = await res.json();
       if (data.success) setRequests(data.data);
+      else pushToast({ title: 'Could not load requests', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not load requests', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -77,6 +79,7 @@ export default function GardenerRequestsPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update request', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -169,7 +172,7 @@ export default function GardenerRequestsPage() {
             <Button variant="outline" onClick={() => setAcceptTarget(null)}>Cancel</Button>
             <Button
               disabled={submitting}
-              onClick={() => acceptTarget && advanceStatus(acceptTarget._id, 'ACCEPTED', quotedPrice ? { quotedPrice: Number(quotedPrice) } : {})}
+              onClick={() => acceptTarget && advanceStatus(acceptTarget._id, 'ACCEPTED', quotedPrice ? { quotedPrice: Math.max(0, Number(quotedPrice)) } : {})}
             >
               {submitting ? 'Accepting...' : 'Accept job'}
             </Button>

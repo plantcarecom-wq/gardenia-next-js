@@ -46,6 +46,7 @@ export default function GardenerOfferingsPage() {
   const formatPrice = useFormatPrice();
   const { pushToast } = useStore();
   const [approved, setApproved] = useState<boolean | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<'pending' | 'approved' | 'rejected' | null>(null);
   const [offerings, setOfferings] = useState<Offering[]>([]);
   const [categoryTypes, setCategoryTypes] = useState<CategoryType[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -62,6 +63,7 @@ export default function GardenerOfferingsPage() {
       const profileData = await profileRes.json();
       const isApproved = profileData.success && profileData.data?.verificationStatus === 'approved';
       setApproved(isApproved);
+      setVerificationStatus(profileData.success ? profileData.data?.verificationStatus ?? null : null);
 
       if (isApproved) {
         const [offeringsRes, typesRes] = await Promise.all([
@@ -81,6 +83,7 @@ export default function GardenerOfferingsPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not load your services', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -152,14 +155,19 @@ export default function GardenerOfferingsPage() {
 
   const toggleActive = async (id: string, current: boolean) => {
     try {
-      await fetch(`/api/v1/gardener/offerings/${id}`, {
+      const res = await fetch(`/api/v1/gardener/offerings/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
       });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not update service', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
       fetchData();
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not update service', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
@@ -175,12 +183,17 @@ export default function GardenerOfferingsPage() {
   }
 
   if (!approved) {
+    const isReReview = verificationStatus === 'pending';
     return (
       <Card className="max-w-lg">
         <CardContent className="py-12 text-center">
           <Lock className="w-10 h-10 mx-auto mb-4 text-gray-300 dark:text-gray-700" />
-          <h2 className="font-semibold text-lg mb-2">Approval required</h2>
-          <p className="text-muted-foreground text-sm mb-6">Your Gardener profile must be approved before you can list services.</p>
+          <h2 className="font-semibold text-lg mb-2">{isReReview ? 'Profile under review' : 'Approval required'}</h2>
+          <p className="text-muted-foreground text-sm mb-6">
+            {isReReview
+              ? "You recently updated your profile, so it's back with an admin for re-verification. Your existing service listings are saved and will reappear once you're approved again."
+              : 'Your Gardener profile must be approved before you can list services.'}
+          </p>
           <Link href="/gardener"><Button variant="outline">Back to profile</Button></Link>
         </CardContent>
       </Card>

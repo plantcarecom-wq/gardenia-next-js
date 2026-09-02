@@ -46,6 +46,7 @@ export default function GardenerSubscriptionPage() {
       if (subData.success) setMySubscriptions(subData.data);
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not load subscription data', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -74,6 +75,7 @@ export default function GardenerSubscriptionPage() {
       }
     } catch (err) {
       console.error(err);
+      pushToast({ title: 'Could not request package', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setRequestingId(null);
     }

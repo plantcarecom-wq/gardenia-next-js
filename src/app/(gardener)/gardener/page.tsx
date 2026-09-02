@@ -64,16 +64,21 @@ export default function GardenerProfilePage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [fetchError, setFetchError] = useState(false);
 
   const [form, setForm] = useState(emptyForm);
 
   const fetchAll = async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const [profileRes, settingsRes] = await Promise.all([
         fetch('/api/v1/gardener/profile'),
         fetch('/api/v1/settings'),
       ]);
+      if (!profileRes.ok || !settingsRes.ok) {
+        throw new Error(`Unexpected response (profile: ${profileRes.status}, settings: ${settingsRes.status})`);
+      }
       const profileData = await profileRes.json();
       const settingsData = await settingsRes.json();
 
@@ -103,6 +108,7 @@ export default function GardenerProfilePage() {
       }
     } catch (err) {
       console.error(err);
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -175,6 +181,21 @@ export default function GardenerProfilePage() {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="max-w-2xl">
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive">
+          <XCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Could not load your profile</p>
+            <p className="text-sm">Check your connection and try again.</p>
+          </div>
+        </div>
+        <Button variant="outline" className="mt-4" onClick={() => fetchAll()}>Retry</Button>
       </div>
     );
   }
