@@ -42,6 +42,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, data: reviews });
     }
 
+    if (targetType || targetId) {
+      return NextResponse.json(
+        { success: false, error: 'Both targetType and targetId are required together' },
+        { status: 400 }
+      );
+    }
+
     // Admin-wide moderation listing
     const auth = await requireRole([Roles.SUPER_ADMIN]);
     if (!auth.authorized) return auth.response;
@@ -114,13 +121,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const review = await ReviewModel.create({
-      targetType,
-      targetId,
-      customerId,
-      rating,
-      comment,
-    });
+    let review;
+    try {
+      review = await ReviewModel.create({
+        targetType,
+        targetId,
+        customerId,
+        rating,
+        comment,
+      });
+    } catch (createError: unknown) {
+      // The findOne check above is TOCTOU — a concurrent double-submit can
+      // both pass it and race to the unique index, so translate that into
+      // the same friendly 409 instead of an opaque 500.
+      if ((createError as { code?: number }).code === 11000) {
+        return NextResponse.json({ success: false, error: 'You have already reviewed this item' }, { status: 409 });
+      }
+      throw createError;
+    }
 
     // Keep the denormalized rating on the target (Product or GardenerProfile) in sync.
     await recomputeRating(targetType, review.targetId);

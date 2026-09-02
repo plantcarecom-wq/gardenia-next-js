@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/shared/lib/db';
 import { ServiceRequestModel, RequestStatus } from '@/modules/services/infrastructure/service-request.model';
+import { GardenerProfileModel } from '@/modules/services/infrastructure/gardener-profile.model';
 import { requireRole } from '@/shared/lib/auth-guard';
 import { Roles } from '@/shared/types/roles';
 import { requireServicesModule } from '@/shared/lib/services-flag';
@@ -11,6 +12,11 @@ import { z } from 'zod';
 const assignSchema = z.object({
   gardenerId: idSchema,
 });
+
+// Only requests actually awaiting assignment may be (re-)assigned — an
+// admin must not be able to resurrect an already-completed, cancelled, or
+// rejected request by pointing it at a gardener again.
+const ASSIGNABLE_STATUSES: RequestStatus[] = ['REQUESTED', 'PENDING_ASSIGNMENT'];
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const flagCheck = requireServicesModule();
@@ -39,6 +45,18 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     }
 
     const previousStatus = request.status;
+    if (!ASSIGNABLE_STATUSES.includes(previousStatus)) {
+      return NextResponse.json(
+        { success: false, error: `Cannot assign a request with status ${previousStatus}` },
+        { status: 400 }
+      );
+    }
+
+    const gardenerProfile = await GardenerProfileModel.findOne({ userId: parsed.data.gardenerId }).select('verificationStatus').lean();
+    if (!gardenerProfile || gardenerProfile.verificationStatus !== 'approved') {
+      return NextResponse.json({ success: false, error: 'Gardener is not an approved gardener' }, { status: 400 });
+    }
+
     const newStatus: RequestStatus = 'ASSIGNED';
 
     request.status = newStatus;

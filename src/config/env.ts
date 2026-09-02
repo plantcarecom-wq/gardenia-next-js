@@ -25,6 +25,11 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  // Client-side only (Maps JS API + Geocoding) — powers the location picker
+  // used wherever an address is entered manually. No server code should read
+  // this; it's listed here only so /config/env.ts stays the single place
+  // that documents every env var the app uses.
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 
 const _env = envSchema.safeParse({
@@ -52,6 +57,7 @@ const _env = envSchema.safeParse({
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
   SMTP_FROM: process.env.SMTP_FROM,
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
 });
 
 if (!_env.success) {

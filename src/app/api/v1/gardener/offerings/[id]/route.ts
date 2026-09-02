@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/shared/lib/db';
 import { ServiceOfferingModel } from '@/modules/services/infrastructure/service-offering.model';
+import { GardenerProfileModel } from '@/modules/services/infrastructure/gardener-profile.model';
 import { CategoryModel } from '@/modules/catalog/infrastructure/category.model';
 // Registers the 'CategoryType' Mongoose model for the
 // `.populate('categoryTypeId', ...)` call below — see service-requests/route.ts
@@ -47,6 +48,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const offering = await ServiceOfferingModel.findOne({ _id: id, gardenerId: auth.user?.id });
     if (!offering) {
       return NextResponse.json({ success: false, error: 'Offering not found or not owned by you' }, { status: 404 });
+    }
+
+    if (parsed.data.isActive === true) {
+      const profile = await GardenerProfileModel.findOne({ userId: auth.user?.id }).select('verificationStatus').lean();
+      if (!profile || profile.verificationStatus !== 'approved') {
+        return NextResponse.json({ success: false, error: 'Your gardener profile must be approved before you can activate offerings' }, { status: 403 });
+      }
     }
 
     if (parsed.data.categoryId) {

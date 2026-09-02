@@ -34,7 +34,14 @@ export class LocalStorageProvider implements MediaStorageProvider {
     const publicId = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${ext}`;
     const folder = params.folder || '';
     const dir = folder ? path.join(this.uploadDir, folder) : this.uploadDir;
-    
+
+    // Defense in depth against path traversal (`../`, absolute paths) even
+    // if a caller upstream forgets to validate `folder` itself — the
+    // resolved directory must stay inside uploadDir.
+    if (path.relative(this.uploadDir, dir).startsWith('..') || path.isAbsolute(path.relative(this.uploadDir, dir))) {
+      throw new Error('Invalid upload folder');
+    }
+
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

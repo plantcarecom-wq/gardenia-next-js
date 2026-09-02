@@ -47,13 +47,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // No email transport configured yet — surface the token directly so the
-    // flow is still usable (admin-assisted / dev fallback) rather than a
-    // dead end.
+    // No email transport configured yet. In production this must never
+    // hand the token back to whoever called the endpoint (anyone can supply
+    // an arbitrary email — that would be a full account-takeover oracle);
+    // log it server-side for admin-assisted delivery instead. Only in
+    // non-production do we echo it back, as a dev convenience.
+    console.warn(`[reset-password] Email not configured — reset token for ${user.email}: ${resetToken}`);
+
     return NextResponse.json({
       success: true,
-      message: 'Email delivery is not configured yet — use this token to reset your password.',
-      debug_token: resetToken,
+      message:
+        process.env.NODE_ENV === 'production'
+          ? 'Email delivery is not configured yet — contact an admin to complete your password reset.'
+          : 'Email delivery is not configured yet — use this token to reset your password.',
+      ...(process.env.NODE_ENV === 'production' ? {} : { debug_token: resetToken }),
     });
   } catch (error: unknown) {
     console.error(error);
