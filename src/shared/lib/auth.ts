@@ -4,6 +4,13 @@ import { authConfig } from '@/shared/lib/auth.config';
 import { userRepository } from '@/modules/users/infrastructure/UserRepository';
 import { verifyPassword } from '@/shared/lib/password';
 
+// JWT sessions are otherwise only re-validated against the DB on sign-in or
+// an explicit client `session.update()` call, so an admin suspending a user
+// or changing their role wouldn't take effect until the JWT naturally
+// expires (weeks, by NextAuth's default). Re-checking on this cadence caps
+// that exposure window instead.
+const STATUS_REVALIDATE_MS = 5 * 60 * 1000;
+
 // Full NextAuth instance for Node.js runtime only (API routes, Route
 // Handlers, server components). This is the only place the Credentials
 // provider and mongoose-backed userRepository should be imported — keep it
@@ -46,6 +53,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = (user as { role?: string; status?: string; isEmailVerified?: boolean }).role;
         token.status = (user as { role?: string; status?: string; isEmailVerified?: boolean }).status;
         token.isEmailVerified = (user as { role?: string; status?: string; isEmailVerified?: boolean }).isEmailVerified;
+        token.statusCheckedAt = Date.now();
       } else if (trigger === 'update' && token.id) {
         // The JWT is otherwise only populated at sign-in, so fields that can
         // change mid-session (e.g. emailVerified right after the user
@@ -56,6 +64,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token.role = freshUser.role;
           token.status = freshUser.status;
           token.isEmailVerified = freshUser.emailVerified;
+        }
+        token.statusCheckedAt = Date.now();
+      } else if (token.id) {
+        const lastChecked = (token.statusCheckedAt as number | undefined) ?? 0;
+        if (Date.now() - lastChecked > STATUS_REVALIDATE_MS) {
+          const freshUser = await userRepository.findById(token.id as string);
+          if (freshUser) {
+            token.role = freshUser.role;
+            token.status = freshUser.status;
+            token.isEmailVerified = freshUser.emailVerified;
+          }
+          token.statusCheckedAt = Date.now();
         }
       }
       return token;
