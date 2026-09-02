@@ -57,7 +57,10 @@ export function LocationProvider({ children }: { children: React.ReactNode }) {
         (error) => {
           console.error('Error getting location:', error);
           setIsLoading(false);
-        }
+        },
+        // Without a timeout, a device/browser where the location request
+        // never settles leaves `isLoading` stuck true forever.
+        { timeout: 10000, maximumAge: 60000 }
       );
     } else {
       setIsLoading(false);

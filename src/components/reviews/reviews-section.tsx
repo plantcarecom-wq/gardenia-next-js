@@ -107,10 +107,17 @@ export function ReviewsSection({ targetType, targetId, subjectLabel = 'product' 
   const handleReport = async (reviewId: string) => {
     setReportedIds((prev) => [...prev, reviewId]);
     try {
-      await fetch(`/api/v1/reviews/${reviewId}`, { method: 'POST' });
+      const res = await fetch(`/api/v1/reviews/${reviewId}`, { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        setReportedIds((prev) => prev.filter((id) => id !== reviewId));
+        pushToast({ title: 'Could not report review', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+        return;
+      }
       pushToast({ title: 'Review reported', body: 'Thanks — our team will take a look.' });
     } catch {
       setReportedIds((prev) => prev.filter((id) => id !== reviewId));
+      pushToast({ title: 'Could not report review', body: 'A network error occurred.', variant: 'error' });
     }
   };
 

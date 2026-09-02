@@ -87,7 +87,12 @@ export default function CartPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => removeItem(item.productId._id)}
+                          onClick={async () => {
+                            const result = await removeItem(item.productId._id);
+                            if (!result.success) {
+                              pushToast({ title: 'Could not remove item', body: result.error, variant: 'error' });
+                            }
+                          }}
                           className="text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors p-2 rounded-full"
                         >
                           <Trash2 className="w-5 h-5" />
@@ -96,7 +101,12 @@ export default function CartPage() {
                       <div className="flex justify-between items-end mt-6">
                         <div className="flex items-center border border-gray-200 dark:border-border rounded-full bg-gray-50 dark:bg-background overflow-hidden">
                           <button
-                            onClick={() => updateQty(item.productId._id, Math.max(1, item.qty - 1))}
+                            onClick={async () => {
+                              const result = await updateQty(item.productId._id, Math.max(1, item.qty - 1));
+                              if (!result.success) {
+                                pushToast({ title: 'Could not update quantity', body: result.error, variant: 'error' });
+                              }
+                            }}
                             className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-muted transition-colors"
                             disabled={item.qty <= 1}
                           >
@@ -107,7 +117,7 @@ export default function CartPage() {
                             onClick={async () => {
                               const result = await updateQty(item.productId._id, item.qty + 1);
                               if (!result.success) {
-                                pushToast({ title: 'Could not update quantity', body: result.error });
+                                pushToast({ title: 'Could not update quantity', body: result.error, variant: 'error' });
                               }
                             }}
                             className="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:hover:bg-muted transition-colors"

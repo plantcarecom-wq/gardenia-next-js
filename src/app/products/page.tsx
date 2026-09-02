@@ -12,6 +12,7 @@ import { ProductFilters } from './product-filters';
 import { ProductCard } from '@/components/ui/product-card';
 import { Container } from '@/shared/components/Container';
 import { LocationAutoDetect } from '@/components/location/location-auto-detect';
+import { escapeRegExp } from '@/shared/lib/escape-regex';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ async function getProducts(searchParams: { [key: string]: string | string[] | un
   const sort = typeof searchParams.sort === 'string' ? searchParams.sort : 'newest';
 
   const filter: any = { isActive: true };
-  if (q) filter.name = { $regex: q, $options: 'i' };
+  if (q) filter.name = { $regex: escapeRegExp(q), $options: 'i' };
   if (categoryId) filter.categoryId = categoryId;
   if (minPrice !== undefined || maxPrice !== undefined) {
     filter.price = {};

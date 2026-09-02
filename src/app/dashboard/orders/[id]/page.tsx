@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OrderTrackingTimeline } from '@/components/orders/order-tracking-timeline';
@@ -29,25 +29,26 @@ export default function OrderDetailPage() {
   const { status } = useSession();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated' && id) {
-      fetch(`/api/v1/orders/${id}/track/poll`)
-        .then(r => r.json())
-        .then(data => {
+      fetch('/api/v1/orders/customer')
+        .then((r) => r.json())
+        .then((data) => {
           if (data.success) {
-            // We need the full order for display; fetch it separately
-            return fetch('/api/v1/orders/customer').then(r => r.json());
-          }
-          return null;
-        })
-        .then(data => {
-          if (data?.success) {
             const found = data.data.find((o: Order) => o._id === id);
             if (found) setOrder(found);
+            // else: fetch succeeded but this order isn't the customer's —
+            // renders the "not found" branch below, distinct from a load failure.
+          } else {
+            setLoadError(true);
           }
         })
-        .catch(console.error)
+        .catch((err) => {
+          console.error('Failed to load order:', err);
+          setLoadError(true);
+        })
         .finally(() => setLoading(false));
     }
   }, [status, id]);
@@ -56,6 +57,17 @@ export default function OrderDetailPage() {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-center py-20">
+        <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+        <h2 className="text-xl font-bold">Could not load this order</h2>
+        <p className="text-muted-foreground mt-1">Check your connection and try again.</p>
+        <Link href="/dashboard/orders" className="text-emerald-600 mt-4 inline-block">Back to Orders</Link>
       </div>
     );
   }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, Loader2, File as FileIcon, FileText } from 'lucide-react';
+import { Upload, X, Loader2, File as FileIcon, FileText, AlertCircle } from 'lucide-react';
+import { useStore } from '@/shared/store';
 
 interface ImageUploaderProps {
   /** Media document _ids (not URLs — every schema this feeds, e.g. Product.imageMediaIds, GardenerProfile.cvMediaId, stores ids). */
@@ -25,14 +26,18 @@ interface ImageUploaderProps {
  * generic file tile since their metadata isn't known without an extra fetch.
  */
 export function ImageUploader({ value, onChange, maxFiles = 5, folder = '', accept = 'image/*', hint }: ImageUploaderProps) {
+  const { pushToast } = useStore();
   const [uploading, setUploading] = useState(false);
   const [previews, setPreviews] = useState<Record<string, { url: string; mimeType: string }>>({});
+  const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const compressImage = useCallback(async (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const img = new window.Image();
+      const objectUrl = URL.createObjectURL(file);
       img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
         const canvas = document.createElement('canvas');
         const MAX_DIM = 1200;
         let { width, height } = img;
@@ -58,7 +63,15 @@ export function ImageUploader({ value, onChange, maxFiles = 5, folder = '', acce
           0.85
         );
       };
-      img.src = URL.createObjectURL(file);
+      // Without this, a corrupt/undecodable image (passes the `accept`
+      // filter but fails to decode) leaves this promise pending forever —
+      // `handleUpload` awaits uploads sequentially, so one stuck file would
+      // block the rest of the batch and `uploading` would never clear.
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error(`"${file.name}" could not be read as an image.`));
+      };
+      img.src = objectUrl;
     });
   }, []);
 
@@ -70,8 +83,10 @@ export function ImageUploader({ value, onChange, maxFiles = 5, folder = '', acce
     const toUpload = files.slice(0, remaining);
 
     setUploading(true);
+    setError('');
     const newIds: string[] = [];
     const newPreviews: Record<string, { url: string; mimeType: string }> = {};
+    const failures: string[] = [];
 
     for (const file of toUpload) {
       try {
@@ -86,18 +101,26 @@ export function ImageUploader({ value, onChange, maxFiles = 5, folder = '', acce
           body: formData,
         });
 
-        if (res.ok) {
-          const data = await res.json();
+        const data = await res.json();
+        if (res.ok && data.success) {
           newIds.push(data.data._id);
           newPreviews[data.data._id] = { url: data.data.url, mimeType: data.data.mimeType };
+        } else {
+          failures.push(`${file.name}: ${typeof data.error === 'string' ? data.error : 'upload rejected'}`);
         }
       } catch (err) {
         console.error('Upload failed:', err);
+        failures.push(err instanceof Error ? err.message : `${file.name}: upload failed`);
       }
     }
 
     setPreviews((prev) => ({ ...prev, ...newPreviews }));
-    onChange([...value, ...newIds]);
+    if (newIds.length > 0) onChange([...value, ...newIds]);
+    if (failures.length > 0) {
+      const message = failures.join('; ');
+      setError(message);
+      pushToast({ title: failures.length === 1 ? 'File upload failed' : `${failures.length} uploads failed`, body: message, variant: 'error' });
+    }
     setUploading(false);
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -169,6 +192,12 @@ export function ImageUploader({ value, onChange, maxFiles = 5, folder = '', acce
       <p className="text-xs text-muted-foreground">
         {hint || `${value.length}/${maxFiles} files • Max 5MB each`}
       </p>
+      {error && (
+        <p className="text-xs text-destructive flex items-start gap-1">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          {error}
+        </p>
+      )}
     </div>
   );
 }

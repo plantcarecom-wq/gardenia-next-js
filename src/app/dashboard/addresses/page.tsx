@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useStore } from '@/shared/store';
+import { LocationPicker, type PickedLocation } from '@/components/location/location-picker';
 
 type Address = {
   _id: string;
@@ -19,10 +20,23 @@ type Address = {
   region: string;
   postalCode?: string;
   country: string;
+  lat?: number;
+  lng?: number;
   isDefault: boolean;
 };
 
-const emptyForm = { label: '', line1: '', line2: '', city: '', region: '', postalCode: '', country: 'Pakistan', isDefault: false };
+const emptyForm = {
+  label: '',
+  line1: '',
+  line2: '',
+  city: '',
+  region: '',
+  postalCode: '',
+  country: 'Pakistan',
+  isDefault: false,
+  lat: undefined as number | undefined,
+  lng: undefined as number | undefined,
+};
 
 export default function AddressesPage() {
   const { pushToast } = useStore();
@@ -64,8 +78,26 @@ export default function AddressesPage() {
       postalCode: a.postalCode || '',
       country: a.country,
       isDefault: a.isDefault,
+      lat: a.lat,
+      lng: a.lng,
     });
     setDialogOpen(true);
+  };
+
+  const handleLocationPicked = (loc: PickedLocation) => {
+    setForm((prev) => ({
+      ...prev,
+      lat: loc.lat,
+      lng: loc.lng,
+      // A picked location is authoritative for the address text too — still
+      // editable afterward (e.g. to add a unit/floor), just never
+      // disconnected from where the pin actually is.
+      line1: loc.line1 || prev.line1,
+      city: loc.city || prev.city,
+      region: loc.region || prev.region,
+      postalCode: loc.postalCode || prev.postalCode,
+      country: loc.country || prev.country,
+    }));
   };
 
   const handleSave = async () => {
@@ -78,12 +110,15 @@ export default function AddressesPage() {
       });
       const data = await res.json();
       if (!data.success) {
-        pushToast({ title: 'Could not save address', body: typeof data.error === 'string' ? data.error : undefined });
+        pushToast({ title: 'Could not save address', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
         return;
       }
       pushToast({ title: editingId ? 'Address updated' : 'Address added' });
       setDialogOpen(false);
       load();
+    } catch (err) {
+      console.error('Failed to save address:', err);
+      pushToast({ title: 'Could not save address', body: 'A network error occurred.', variant: 'error' });
     } finally {
       setSaving(false);
     }
@@ -91,21 +126,38 @@ export default function AddressesPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this address?')) return;
-    const res = await fetch(`/api/v1/addresses/${id}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (data.success) {
-      pushToast({ title: 'Address deleted' });
-      load();
+    try {
+      const res = await fetch(`/api/v1/addresses/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        pushToast({ title: 'Address deleted' });
+        load();
+      } else {
+        pushToast({ title: 'Could not delete address', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+      }
+    } catch (err) {
+      console.error('Failed to delete address:', err);
+      pushToast({ title: 'Could not delete address', body: 'A network error occurred.', variant: 'error' });
     }
   };
 
   const handleSetDefault = async (id: string) => {
-    await fetch(`/api/v1/addresses/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isDefault: true }),
-    });
-    load();
+    try {
+      const res = await fetch(`/api/v1/addresses/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDefault: true }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        pushToast({ title: 'Could not set default address', body: typeof data.error === 'string' ? data.error : undefined, variant: 'error' });
+        return;
+      }
+      load();
+    } catch (err) {
+      console.error('Failed to set default address:', err);
+      pushToast({ title: 'Could not set default address', body: 'A network error occurred.', variant: 'error' });
+    }
   };
 
   return (
@@ -181,6 +233,14 @@ export default function AddressesPage() {
               <div className="grid gap-1.5">
                 <Label htmlFor="label">Label</Label>
                 <Input id="label" placeholder="Home, Office, etc." required value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label>Location</Label>
+                <LocationPicker
+                  key={editingId || 'new'}
+                  value={form.lat !== undefined && form.lng !== undefined ? { lat: form.lat, lng: form.lng } : null}
+                  onChange={handleLocationPicked}
+                />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="line1">Address Line 1</Label>

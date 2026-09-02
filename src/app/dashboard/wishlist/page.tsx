@@ -18,8 +18,16 @@ export default function WishlistPage() {
   }, []);
 
   const handleRemove = async (productId: string) => {
-    await toggleWishlist(productId);
+    // toggleWishlist returns whether the product is STILL wishlisted
+    // afterward (it reverts and returns `true` on failure) — only report
+    // success, and resync the visible list, when it actually came back `false`.
+    const stillWishlisted = await toggleWishlist(productId);
+    if (stillWishlisted) {
+      pushToast({ title: 'Could not remove from wishlist', body: 'A network error occurred.', variant: 'error' });
+      return;
+    }
     pushToast({ title: 'Removed from wishlist' });
+    fetchWishlist();
   };
 
   return (

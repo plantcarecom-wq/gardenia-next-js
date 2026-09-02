@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
-import { Package, Clock, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { Package, Clock, ChevronRight, ChevronLeft, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatPrice } from '@/shared/lib/format-price';
@@ -33,6 +33,7 @@ export default function CustomerOrdersPage() {
   const { status } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -40,8 +41,12 @@ export default function CustomerOrdersPage() {
         .then(r => r.json())
         .then(data => {
           if (data.success) setOrders(data.data);
+          else setLoadError(true);
         })
-        .catch(console.error)
+        .catch((err) => {
+          console.error('Failed to load orders:', err);
+          setLoadError(true);
+        })
         .finally(() => setLoading(false));
     }
   }, [status]);
@@ -50,6 +55,16 @@ export default function CustomerOrdersPage() {
     return (
       <div className="flex justify-center items-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="container mx-auto px-4 py-10 max-w-4xl text-center py-20">
+        <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+        <h2 className="text-xl font-semibold mb-2">Could not load your orders</h2>
+        <p className="text-muted-foreground">Check your connection and try refreshing the page.</p>
       </div>
     );
   }
